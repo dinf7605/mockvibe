@@ -1,0 +1,73 @@
+spring:
+  datasource:
+    url: jdbc:oracle:thin:@localhost:1521/XEPDB1
+    username: ${DB_USERNAME:simulator}
+    password: ${DB_PASSWORD:simulator}
+    driver-class-name: oracle.jdbc.OracleDriver
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 2
+      pool-name: SimulatorPool
+
+  jpa:
+    database-platform: org.hibernate.dialect.OracleDialect
+    hibernate:
+      ddl-auto: validate
+    show-sql: true
+
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: true
+
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      timeout: 3s
+      lettuce:
+        pool:
+          max-active: 8
+          max-idle: 8
+
+logging:
+  level:
+    com.fintech.simulator: DEBUG
+    org.hibernate.SQL: DEBUG
+    org.hibernate.orm.jdbc.bind: TRACE
+
+app:
+  cors:
+    allowed-origins:
+      - http://localhost:5173
+      - http://localhost:3000
+  external:
+    kis:
+      base-url: https://openapivts.koreainvestment.com:29443
+      ws-url:  ws://ops.koreainvestment.com:31000     # 모의투자 WebSocket
+      app-key: ${KIS_APP_KEY:}
+      app-secret: ${KIS_APP_SECRET:}
+      mock: true
+      max-subscriptions: 41
+    finnhub:
+      base-url: https://finnhub.io/api/v1
+      ws-url:  wss://ws.finnhub.io
+      api-key: ${FINNHUB_API_KEY:}
+      rate-per-minute: 60
+    fx:
+      base-url: https://api.exchangerate-api.com/v4
+    claude:
+      base-url: https://api.anthropic.com
+      api-key: ${CLAUDE_API_KEY:}
+    # AI 코치 — PRD의 Claude를 무료 영구 티어인 Gemini로 대체.
+    # Provider 추상화는 D36 이후 추가 시 ClaudeProvider와 병행 가능.
+    gemini:
+      base-url: https://generativelanguage.googleapis.com/v1beta
+      api-key: ${GEMINI_API_KEY:}
+      # 메인 (매매 코멘트 D38 + 즉시 분석 D40) — 가장 여유로운 free 한도
+      main-model:   gemini-3.1-flash-lite       # ~500회/일 무료
+      # 주간 회고 (D39) — 더 깊이 있는 분석, 한도가 적으므로 테스트 시 1~2명만
+      weekly-model: gemini-3.5-flash            # ~20회/일 한도
+      max-output-tokens: 300
+      weekly-max-output-tokens: 800
+      daily-call-limit-per-user: 10

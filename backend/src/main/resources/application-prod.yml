@@ -1,0 +1,68 @@
+spring:
+  datasource:
+    url: jdbc:oracle:thin:@${ORACLE_TNS_NAME}?TNS_ADMIN=${ORACLE_WALLET_DIR}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+    driver-class-name: oracle.jdbc.OracleDriver
+    hikari:
+      maximum-pool-size: 8
+      minimum-idle: 2
+      connection-timeout: 30000
+      pool-name: SimulatorPool
+
+  jpa:
+    database-platform: org.hibernate.dialect.OracleDialect
+    hibernate:
+      ddl-auto: validate
+    show-sql: false
+
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: true
+
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+      timeout: 3s
+      lettuce:
+        pool:
+          max-active: 8
+          max-idle: 8
+
+app:
+  cookie:
+    secure: true
+    same-site: Strict
+
+logging:
+  level:
+    com.fintech.simulator: INFO
+    org.hibernate.SQL: WARN
+
+management:
+  endpoint:
+    health:
+      show-details: never
+
+app:
+  cors:
+    allowed-origins:
+      - ${FRONTEND_URL}
+  external:
+    kis:
+      base-url: https://openapivts.koreainvestment.com:29443
+      app-key: ${KIS_APP_KEY}
+      app-secret: ${KIS_APP_SECRET}
+      mock: true
+    finnhub:
+      base-url: https://finnhub.io/api/v1
+      ws-url: wss://ws.finnhub.io
+      api-key: ${FINNHUB_API_KEY}
+    fx:
+      base-url: https://api.exchangerate-api.com/v4
+    claude:
+      base-url: https://api.anthropic.com
+      api-key: ${CLAUDE_API_KEY}

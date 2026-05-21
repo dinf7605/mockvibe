@@ -1,0 +1,115 @@
+spring:
+  application:
+    name: fintech-simulator
+  # 로컬 개발용 비밀값을 backend/.env에서 자동 로드.
+  # 운영(prod)에서는 .env 대신 시스템 환경변수 직접 주입 권장.
+  # [.properties] 힌트로 KEY=VALUE 포맷을 인식.
+  config:
+    import:
+      - "optional:file:./.env[.properties]"
+      - "optional:file:../.env[.properties]"
+  profiles:
+    active: ${SPRING_PROFILES_ACTIVE:local}
+  jpa:
+    open-in-view: false
+    properties:
+      hibernate:
+        format_sql: true
+        jdbc:
+          time_zone: Asia/Seoul
+  jackson:
+    time-zone: Asia/Seoul
+
+server:
+  port: 8080
+  shutdown: graceful
+  compression:
+    enabled: true
+  error:
+    include-message: always
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: when-authorized
+  metrics:
+    tags:
+      application: ${spring.application.name}
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    operations-sorter: method
+
+logging:
+  pattern:
+    level: "%5p [%X{requestId:-}]"
+  level:
+    com.fintech.simulator: INFO
+    org.springframework.web: INFO
+    org.hibernate.SQL: INFO
+
+# 애플리케이션 전용 설정 (프로파일별로 오버라이드)
+app:
+  auth:
+    seed-money-krw: 10000000   # 회원가입 시 시드머니 (1,000만원)
+    admin:
+      # 초기 관리자 1회 부트스트랩. password가 비어있으면 시드하지 않는다.
+      # 운영에서는 env(ADMIN_INITIAL_PASSWORD)로 주입 후 최초 부팅 1회만 사용.
+      email:    ${ADMIN_INITIAL_EMAIL:admin@simulator.local}
+      username: ${ADMIN_INITIAL_USERNAME:Administrator}
+      password: ${ADMIN_INITIAL_PASSWORD:}
+  jwt:
+    access-token-validity-seconds: 900       # 15분
+    refresh-token-validity-seconds: 604800   # 7일
+    issuer: fintech-simulator
+    # HS256용 비밀키. 운영에서는 반드시 32바이트 이상 무작위 값으로 env 주입
+    secret: ${JWT_SECRET:dev-only-secret-please-replace-with-32-byte-random-value-in-prod}
+  cookie:
+    refresh-token-name: refresh_token
+    secure: false      # 운영(application-prod.yml)에서 true
+    same-site: Lax     # 운영에서는 Strict 또는 None+Secure
+  market:
+    universe:
+      kr-count: 30
+      us-count: 30
+    websocket:
+      kis-subscription-limit: 41
+      finnhub-rate-per-minute: 60
+    mock:
+      enabled: true            # 외부 API 미발급 시 안전 기본값
+      tick-interval-ms: 2000
+  ai:
+    daily-call-limit-per-user: 10
+    model: claude-haiku-4-5-20251001
+  trading:
+    krx-fee-rate: 0.00015     # 0.015%
+    us-fee-rate:  0.0025      # 0.25%
+
+# ============================================================================
+# Resilience4j Circuit Breaker (PRD §10 #6: 5회 실패 → Open → 30초 후 Half-Open)
+# ============================================================================
+resilience4j:
+  circuitbreaker:
+    configs:
+      default:
+        sliding-window-type: COUNT_BASED
+        sliding-window-size: 10
+        minimum-number-of-calls: 5
+        failure-rate-threshold: 50         # 50% 이상 실패 시 Open
+        wait-duration-in-open-state: 30s
+        permitted-number-of-calls-in-half-open-state: 3
+        automatic-transition-from-open-to-half-open-enabled: true
+        register-health-indicator: true
+    instances:
+      kis-auth:     { base-config: default }
+      kis-approval: { base-config: default }
+      kis-rest:     { base-config: default }
+      fx-rate:      { base-config: default }
+      claude:       { base-config: default }

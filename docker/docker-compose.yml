@@ -1,0 +1,82 @@
+name: fintech-simulator
+
+services:
+  oracle:
+    image: gvenzl/oracle-xe:21-slim-faststart
+    container_name: simulator-oracle
+    restart: unless-stopped
+    ports:
+      - "1521:1521"
+    environment:
+      ORACLE_PASSWORD: ${ORACLE_SYS_PASSWORD:-OraclePwd123!}
+      APP_USER: ${DB_USERNAME:-simulator}
+      APP_USER_PASSWORD: ${DB_PASSWORD:-simulator}
+      # ORACLE_DATABASE는 *추가* PDB 생성용. XEPDB1은 기본 존재하므로 지정 금지.
+      # APP_USER는 기본 PDB(XEPDB1)에 자동 생성됨.
+    volumes:
+      - oracle-data:/opt/oracle/oradata
+      - ./oracle/init:/container-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD", "healthcheck.sh"]
+      interval: 20s
+      timeout: 10s
+      retries: 15
+      start_period: 60s
+    shm_size: 1g
+
+  redis:
+    image: redis:7-alpine
+    container_name: simulator-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory", "256mb", "--maxmemory-policy", "allkeys-lru"]
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  app:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
+    container_name: simulator-app
+    restart: unless-stopped
+    depends_on:
+      oracle:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    ports:
+      - "8080:8080"
+    environment:
+      SPRING_PROFILES_ACTIVE: local
+      # 컨테이너 내부에서 다른 서비스 호스트는 서비스 이름으로 접근
+      SPRING_DATASOURCE_URL: jdbc:oracle:thin:@oracle:1521/XEPDB1
+      DB_USERNAME:     ${DB_USERNAME:-simulator}
+      DB_PASSWORD:     ${DB_PASSWORD:-simulator}
+      REDIS_HOST:      redis
+      REDIS_PORT:      "6379"
+      JWT_SECRET:      ${JWT_SECRET}
+      ADMIN_INITIAL_EMAIL:    ${ADMIN_INITIAL_EMAIL:-admin@simulator.local}
+      ADMIN_INITIAL_USERNAME: ${ADMIN_INITIAL_USERNAME:-Administrator}
+      ADMIN_INITIAL_PASSWORD: ${ADMIN_INITIAL_PASSWORD:-}
+      KIS_APP_KEY:     ${KIS_APP_KEY:-}
+      KIS_APP_SECRET:  ${KIS_APP_SECRET:-}
+      FINNHUB_API_KEY: ${FINNHUB_API_KEY:-}
+      GEMINI_API_KEY:  ${GEMINI_API_KEY:-}
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:8080/actuator/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 60s
+
+volumes:
+  oracle-data:
+    name: simulator-oracle-data
+  redis-data:
+    name: simulator-redis-data

@@ -1,0 +1,63 @@
+# ==========================
+# JVM / Gradle (backend)
+# ==========================
+backend/.gradle/
+backend/build/
+backend/!gradle/wrapper/gradle-wrapper.jar
+backend/out/
+backend/bin/
+*.class
+*.log
+hs_err_pid*
+
+# ==========================
+# Node / Vite (frontend)
+# ==========================
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+frontend/.env
+frontend/.env.local
+
+# ==========================
+# IDE
+# ==========================
+.idea/
+*.iml
+*.ipr
+*.iws
+.vscode/
+.classpath
+.project
+.settings/
+.factorypath
+.apt_generated/
+
+# ==========================
+# OS
+# ==========================
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ==========================
+# 환경 / 비밀
+# ==========================
+.env
+.env.*
+!*.env.example
+secrets/
+deploy/oracle-wallet/*
+!deploy/oracle-wallet/.gitkeep
+
+# ==========================
+# Docker / DB local data
+# ==========================
+docker/oracle-data/
+docker/redis-data/
+
+# ==========================
+# 빌드 산출물
+# ==========================
+*.jar
+!gradle-wrapper.jar

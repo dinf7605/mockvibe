@@ -1,0 +1,81 @@
+plugins {
+	id 'java'
+	id 'org.springframework.boot' version '3.5.6'
+	id 'io.spring.dependency-management' version '1.1.7'
+}
+
+group = 'com.fintech'
+version = '0.0.1-SNAPSHOT'
+
+java {
+	toolchain {
+		languageVersion = JavaLanguageVersion.of(17)
+	}
+}
+
+repositories {
+	mavenCentral()
+}
+
+ext {
+	jjwtVersion = '0.12.6'
+	resilience4jVersion = '2.2.0'
+	bucket4jVersion = '8.10.1'
+	springdocVersion = '2.6.0'
+}
+
+dependencies {
+	// Spring Boot Starters
+	implementation 'org.springframework.boot:spring-boot-starter-actuator'
+	implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+	implementation 'org.springframework.boot:spring-boot-starter-data-redis'
+	implementation 'org.springframework.boot:spring-boot-starter-security'
+	implementation 'org.springframework.boot:spring-boot-starter-validation'
+	implementation 'org.springframework.boot:spring-boot-starter-web'
+	implementation 'org.springframework.boot:spring-boot-starter-websocket'
+	implementation 'org.springframework.boot:spring-boot-starter-aop'
+
+	// DB
+	implementation 'org.flywaydb:flyway-core'
+	implementation 'org.flywaydb:flyway-database-oracle'
+	runtimeOnly 'com.oracle.database.jdbc:ojdbc11'
+
+	// JWT
+	implementation "io.jsonwebtoken:jjwt-api:${jjwtVersion}"
+	runtimeOnly "io.jsonwebtoken:jjwt-impl:${jjwtVersion}"
+	runtimeOnly "io.jsonwebtoken:jjwt-jackson:${jjwtVersion}"
+
+	// Resilience (Circuit Breaker, Retry, RateLimiter)
+	implementation "io.github.resilience4j:resilience4j-spring-boot3:${resilience4jVersion}"
+	implementation "io.github.resilience4j:resilience4j-reactor:${resilience4jVersion}"
+
+	// Rate Limiting (Token Bucket)
+	implementation "com.bucket4j:bucket4j-core:${bucket4jVersion}"
+
+	// Metrics
+	implementation 'io.micrometer:micrometer-registry-prometheus'
+
+	// API Docs (OpenAPI/Swagger)
+	implementation "org.springdoc:springdoc-openapi-starter-webmvc-ui:${springdocVersion}"
+
+	// Lombok
+	compileOnly 'org.projectlombok:lombok'
+	annotationProcessor 'org.projectlombok:lombok'
+	annotationProcessor 'org.springframework.boot:spring-boot-configuration-processor'
+
+	// Test
+	testImplementation 'org.springframework.boot:spring-boot-starter-test'
+	testImplementation 'org.springframework.security:spring-security-test'
+	testCompileOnly 'org.projectlombok:lombok'
+	testAnnotationProcessor 'org.projectlombok:lombok'
+	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+tasks.named('test') {
+	useJUnitPlatform()
+}
+
+// JAR 실행 시 메모리 옵션 권장값 (EC2 t3.micro 운영 대응)
+bootJar {
+	archiveFileName = 'simulator.jar'
+}
