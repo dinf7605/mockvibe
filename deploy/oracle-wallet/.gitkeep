@@ -1,0 +1,8 @@
+# Oracle Autonomous Database Wallet 압축 해제 위치
+#
+# 1. Oracle Cloud Console → Autonomous Database → DB Connection → Download Wallet
+# 2. 받은 zip을 이 디렉토리에 압축 해제 (cwallet.sso, tnsnames.ora 등)
+# 3. ../.env.prod 의 ORACLE_TNS_NAME에 tnsnames.ora의 별칭 중 하나 지정
+#    (예: mockvibedb_high, mockvibedb_medium, mockvibedb_low)
+#
+# 주의: 실제 wallet 파일은 .gitignore로 추적되지 않는다.

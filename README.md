@@ -7,6 +7,8 @@
 [![React](https://img.shields.io/badge/React-19-61DAFB?logo=react)](https://react.dev/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-6-3178C6?logo=typescript)](https://www.typescriptlang.org/)
 [![Oracle](https://img.shields.io/badge/Oracle-XE%2021c-F80000?logo=oracle)](https://www.oracle.com/database/technologies/appdev/xe.html)
+[![CI](https://github.com/dinf7605/mockvibe/actions/workflows/ci.yml/badge.svg)](https://github.com/dinf7605/mockvibe/actions/workflows/ci.yml)
+[![Docker](https://github.com/dinf7605/mockvibe/actions/workflows/docker-publish.yml/badge.svg)](https://github.com/dinf7605/mockvibe/actions/workflows/docker-publish.yml)
 [![Tests](https://img.shields.io/badge/tests-80%2F80-success)]()
 [![License](https://img.shields.io/badge/license-MIT-blue)]()
 
@@ -255,11 +257,72 @@ mockvibe/
 - ✅ Phase 7 관리자 + 운영 + Docker + k6
 
 ### 진행 예정
-- ⏳ **D49** AWS EC2 + Nginx HTTPS + Oracle ADB Wallet + Vercel 배포
+- 🟡 **D49 (진행 중)** — 설정/CI/CD 완료, 실 EC2 부팅·도메인 발급 대기
+  - ✅ `application-prod.yml` / `docker-compose.prod.yml` / Nginx HTTPS 템플릿
+  - ✅ `deploy/scripts/` (bootstrap·issue-cert·deploy·rollback)
+  - ✅ GitHub Actions CI (test) + Docker Publish (GHCR)
+  - ✅ Vercel `vercel.json` + 프론트 env
+  - ⏳ EC2 인스턴스 생성 → DuckDNS 도메인 → Let's Encrypt 발급 → 실 배포 검증
 - ⏳ **D50** ADR 12개 추가 + 데모 영상
-- 💡 GitHub Actions CI (gradle test + npm build)
 - 💡 OpenTelemetry 분산 추적
 - 💡 Web Push 알림 (지정가 체결 / 리스크 임계 돌파)
+
+---
+
+## 🌐 운영 배포
+
+자세한 결정 배경은 [ADR-002: 배포 토폴로지](docs/decisions/ADR-002-deployment-topology.md) 참조.
+
+```mermaid
+flowchart LR
+    Dev[GitHub main push] --> GHA[GitHub Actions]
+    GHA -->|gradle test + npm build| CI[(CI 통과)]
+    GHA -->|backend image| GHCR[(ghcr.io/dinf7605/<br/>mockvibe-backend)]
+    GHA -->|frontend| Vercel[Vercel<br/>*.vercel.app]
+
+    subgraph EC2["EC2 t3.micro (Ubuntu)"]
+        Nginx[Nginx + Let's Encrypt<br/>:443 / :80] --> App[Spring Boot<br/>:8080]
+        App <--> Redis[(Redis 7)]
+        Certbot[certbot 사이드카<br/>12h 갱신]
+    end
+
+    GHCR -->|docker pull| App
+    User[사용자] -->|HTTPS| Nginx
+    Vercel -->|/api 리라이트| Nginx
+    App <-->|Wallet mTLS| ADB[(Oracle Autonomous DB<br/>Always Free)]
+```
+
+### EC2 첫 배포 (한 번만)
+```bash
+# 1) EC2 부팅 후 SSH 접속, bootstrap 실행 (Docker / swap / clone)
+scp -i key.pem deploy/scripts/bootstrap-ec2.sh ubuntu@<EC2_IP>:~
+ssh -i key.pem ubuntu@<EC2_IP> 'bash ~/bootstrap-ec2.sh'
+
+# 2) .env.prod 채우기 + Oracle Wallet 압축 해제 → deploy/oracle-wallet/
+
+# 3) Let's Encrypt 인증서 발급 (DuckDNS 등 도메인 사전 등록 필요)
+ssh ... 'cd mockvibe && bash deploy/scripts/issue-cert.sh'
+
+# 4) 본 배포
+ssh ... 'cd mockvibe && bash deploy/scripts/deploy.sh'
+```
+
+### 일상 배포 흐름
+1. `main` 브랜치에 푸시 → GitHub Actions가 자동으로
+   - `ci.yml`: gradle test + npm build
+   - `docker-publish.yml`: `ghcr.io/dinf7605/mockvibe-backend:{sha,latest}` 푸시
+2. EC2에서 `bash deploy/scripts/deploy.sh` → 최신 이미지 pull + up -d + 헬스체크 폴링
+3. 문제 시 `bash deploy/scripts/rollback.sh <previous_sha>`
+
+### 프론트엔드 (Vercel)
+- GitHub 저장소 연결 → `frontend/` 디렉토리 자동 감지
+- 환경변수: `VITE_API_BASE_URL=https://<APP_DOMAIN>`, `VITE_WS_URL=wss://<APP_DOMAIN>/ws`
+- `vercel.json`이 `/api/*` 요청을 백엔드로 리라이트, SPA fallback 포함
+
+### 무료 도메인 (DuckDNS)
+1. [duckdns.org](https://www.duckdns.org/) 로그인 → 서브도메인 생성 (예: `mockvibe`)
+2. EC2 Elastic IP 등록
+3. 발급된 `mockvibe.duckdns.org` 를 `.env.prod`의 `APP_DOMAIN`에 입력
 
 ---
 
@@ -269,6 +332,8 @@ mockvibe/
 - 📅 [DAILY_PLAN.md](DAILY_PLAN.md) — 10주 50일 작업 계획
 - 🏛️ [docs/decisions/](docs/decisions/) — Architecture Decision Records
 - 📊 [docs/perf/D48-load-test.md](docs/perf/D48-load-test.md) — 부하 테스트 결과
+- 🏛️ [ADR-001 데이터 모델 V1 설계](docs/decisions/ADR-001-data-model.md)
+- 🏛️ [ADR-002 배포 토폴로지](docs/decisions/ADR-002-deployment-topology.md)
 
 ---
 

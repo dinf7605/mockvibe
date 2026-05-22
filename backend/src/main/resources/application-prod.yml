@@ -1,5 +1,10 @@
+# ============================================================================
+# Production profile — Oracle Autonomous DB (Wallet) + 외부 Redis + Nginx 뒤
+# 모든 비밀값은 시스템 환경변수로 주입. .env 파일은 운영에서 사용 금지.
+# ============================================================================
 spring:
   datasource:
+    # Wallet 압축 해제 디렉토리를 TNS_ADMIN으로, tnsnames.ora 별칭을 URL로
     url: jdbc:oracle:thin:@${ORACLE_TNS_NAME}?TNS_ADMIN=${ORACLE_WALLET_DIR}
     username: ${DB_USERNAME}
     password: ${DB_PASSWORD}
@@ -32,10 +37,9 @@ spring:
           max-active: 8
           max-idle: 8
 
-app:
-  cookie:
-    secure: true
-    same-site: Strict
+server:
+  # Nginx 리버스 프록시의 X-Forwarded-* 헤더 신뢰 → 쿠키 secure 판정, 리다이렉트 URL 정확
+  forward-headers-strategy: framework
 
 logging:
   level:
@@ -43,11 +47,23 @@ logging:
     org.hibernate.SQL: WARN
 
 management:
+  endpoints:
+    web:
+      exposure:
+        # prometheus는 Nginx 레벨에서 사설망/Basic Auth로 보호 권장
+        include: health,info,prometheus
   endpoint:
     health:
       show-details: never
 
 app:
+  cookie:
+    secure: true
+    same-site: Strict
+  # 외부 API: prod에서는 Mock 폴백 비활성 (CB Open 시에만 폴백 동작)
+  market:
+    mock:
+      enabled: false
   cors:
     allowed-origins:
       - ${FRONTEND_URL}
@@ -56,13 +72,15 @@ app:
       base-url: https://openapivts.koreainvestment.com:29443
       app-key: ${KIS_APP_KEY}
       app-secret: ${KIS_APP_SECRET}
-      mock: true
+      mock: true   # KIS 자체는 모의투자 엔드포인트 사용
     finnhub:
       base-url: https://finnhub.io/api/v1
       ws-url: wss://ws.finnhub.io
       api-key: ${FINNHUB_API_KEY}
     fx:
       base-url: https://api.exchangerate-api.com/v4
+    # PRD 표기는 Claude이지만 실제는 Gemini로 대체.
+    # GEMINI_API_KEY 우선, 없으면 CLAUDE_API_KEY (호환)
     claude:
       base-url: https://api.anthropic.com
-      api-key: ${CLAUDE_API_KEY}
+      api-key: ${GEMINI_API_KEY:${CLAUDE_API_KEY:}}
