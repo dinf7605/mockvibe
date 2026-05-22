@@ -6,8 +6,6 @@
   "installCommand": "npm ci",
 
   "rewrites": [
-    { "source": "/api/(.*)", "destination": "https://$APP_BACKEND_DOMAIN/api/$1" },
-    { "source": "/actuator/health", "destination": "https://$APP_BACKEND_DOMAIN/actuator/health" },
     { "source": "/(.*)", "destination": "/index.html" }
   ],
 
