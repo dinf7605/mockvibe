@@ -28,7 +28,7 @@ export default function SignupPage() {
       // 가입 직후 자동 로그인
       const { accessToken, user } = await login({ email, password });
       setAuth({ accessToken, user });
-      navigate("/", { replace: true });
+      navigate("/dashboard", { replace: true });
     } catch (err) {
       const ax = err as AxiosError<ApiError>;
       const data = ax.response?.data;

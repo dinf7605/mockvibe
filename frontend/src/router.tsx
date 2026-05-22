@@ -2,6 +2,7 @@ import { createBrowserRouter, Navigate } from "react-router-dom";
 import AppLayout from "./layouts/AppLayout";
 import { RequireAdmin } from "./components/RequireAdmin";
 import { RequireAuth } from "./components/RequireAuth";
+import LandingPage from "./pages/LandingPage";
 import DashboardPage from "./pages/DashboardPage";
 import LoginPage from "./pages/LoginPage";
 import SignupPage from "./pages/SignupPage";
@@ -22,18 +23,26 @@ import AdminLayout, {
 } from "./pages/AdminPage";
 import NotFoundPage from "./pages/NotFoundPage";
 
+/**
+ * 라우팅 정책
+ * - "/"        : 공개 랜딩 페이지 (비/로그인 모두 접근 가능)
+ * - "/login"   : 공개
+ * - "/signup"  : 공개
+ * - "/dashboard"·"/search"·"/stocks/:ticker" 등 : RequireAuth (AppLayout 안)
+ * - "/admin/*" : RequireAdmin (관리자만)
+ */
 export const router = createBrowserRouter([
+  { path: "/", element: <LandingPage /> },
   { path: "/login", element: <LoginPage /> },
   { path: "/signup", element: <SignupPage /> },
   {
-    path: "/",
     element: (
       <RequireAuth>
         <AppLayout />
       </RequireAuth>
     ),
     children: [
-      { index: true, element: <DashboardPage /> },
+      { path: "dashboard", element: <DashboardPage /> },
       { path: "search", element: <StockSearchPage /> },
       { path: "stocks/:ticker", element: <StockDetailPage /> },
       { path: "history", element: <HistoryPage /> },
@@ -58,7 +67,7 @@ export const router = createBrowserRouter([
           { path: "audit", element: <AdminAuditPage /> },
         ],
       },
-      { path: "*", element: <NotFoundPage /> },
     ],
   },
+  { path: "*", element: <NotFoundPage /> },
 ]);

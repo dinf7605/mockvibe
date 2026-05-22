@@ -12,7 +12,7 @@ export default function LoginPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const setAuth = useAuthStore((s) => s.setAuth);
-  const from = (location.state as LocationState | null)?.from ?? "/";
+  const from = (location.state as LocationState | null)?.from ?? "/dashboard";
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");

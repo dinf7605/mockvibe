@@ -11,6 +11,6 @@ interface Props {
  */
 export function RequireAdmin({ children }: Props) {
   const isAdmin = useAuthStore((s) => s.isAdmin());
-  if (!isAdmin) return <Navigate to="/" replace />;
+  if (!isAdmin) return <Navigate to="/dashboard" replace />;
   return <>{children}</>;
 }

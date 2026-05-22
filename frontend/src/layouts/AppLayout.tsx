@@ -4,7 +4,7 @@ import { useAuthStore } from "../store/authStore";
 import { logout as apiLogout } from "../api/auth";
 
 const NAV = [
-  { to: "/", label: "대시보드", end: true },
+  { to: "/dashboard", label: "대시보드", end: true },
   { to: "/search", label: "종목 검색" },
   { to: "/history", label: "거래 내역" },
   { to: "/orders", label: "예약 주문" },
