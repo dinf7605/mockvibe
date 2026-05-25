@@ -22,10 +22,12 @@ sed -e "s|APP_DOMAIN_PLACEHOLDER|${APP_DOMAIN}|g" \
     -e "s|\${FRONTEND_URL_PLACEHOLDER}|${FRONTEND_URL}|g" \
     deploy/nginx/conf.d/mockvibe.conf.template > deploy/nginx/conf.d/mockvibe.conf
 
-# 치환 검증 - placeholder가 한 토큰이라도 남으면 즉시 실패
-if grep -q "PLACEHOLDER" deploy/nginx/conf.d/mockvibe.conf; then
+# 치환 검증 - sed가 매칭하는 정확한 패턴만 잔존 검사 (코멘트의 단어는 false positive 회피)
+# - "APP_DOMAIN_PLACEHOLDER" (단독 토큰)
+# - "${FRONTEND_URL_PLACEHOLDER}" (literal ${...} 형식)
+if grep -qE 'APP_DOMAIN_PLACEHOLDER|\$\{FRONTEND_URL_PLACEHOLDER\}' deploy/nginx/conf.d/mockvibe.conf; then
   echo "[deploy] ❌ Nginx conf placeholder 치환 실패 — .env.prod 확인"
-  grep -n "PLACEHOLDER" deploy/nginx/conf.d/mockvibe.conf
+  grep -nE 'APP_DOMAIN_PLACEHOLDER|\$\{FRONTEND_URL_PLACEHOLDER\}' deploy/nginx/conf.d/mockvibe.conf
   exit 1
 fi
 

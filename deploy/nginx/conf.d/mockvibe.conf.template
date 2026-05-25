@@ -1,9 +1,9 @@
 # ============================================================================
 # MockVibe — Nginx 리버스 프록시 (HTTPS + WebSocket)
 #
-# 환경변수 치환: deploy/scripts/deploy.sh 가 APP_DOMAIN_PLACEHOLDER /
-# FRONTEND_URL_PLACEHOLDER 두 토큰을 .env.prod 값으로 sed 치환한 뒤
-# nginx 컨테이너에 마운트한다.
+# 환경변수 치환: deploy/scripts/deploy.sh 가 본 template 의 두 토큰
+# (도메인 / 프론트 URL) 을 .env.prod 값으로 sed 치환한 뒤 conf.d/mockvibe.conf
+# 로 출력. compose 가 그 결과 파일을 nginx 컨테이너에 마운트한다.
 # ============================================================================
 
 # upstream — compose 네트워크 내부 서비스명
