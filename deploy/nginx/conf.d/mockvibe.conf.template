@@ -81,13 +81,25 @@ server {
 
     # ------------------------------------------------------------------------
     # WebSocket (STOMP)
+    # ⚠️ nginx 규칙: 한 location에 proxy_set_header가 하나라도 있으면 server
+    # 블록 default proxy_set_header가 전부 상속되지 않는다. WebSocket 전용
+    # Upgrade/Connection 명시 때문에 Host/X-Forwarded-* 까지 모두 다시 명시.
     # ------------------------------------------------------------------------
     location /ws {
         proxy_pass http://mockvibe_backend/ws;
-        # WebSocket 전용: Connection/Upgrade 헤더로 server 블록 default 오버라이드
+        proxy_http_version 1.1;
+
+        # server 블록 default 헤더 복제 (상속 안 됨)
+        proxy_set_header Host              $host;
+        proxy_set_header X-Real-IP         $remote_addr;
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+
+        # WebSocket 전용
         proxy_set_header Upgrade    $http_upgrade;
         proxy_set_header Connection $connection_upgrade;
-        # 장기 연결 — heartbeat 간격(기본 10s)보다 충분히 큰 값
+
+        # 장기 연결 — heartbeat 15s 보다 넉넉히
         proxy_read_timeout  3600s;
         proxy_send_timeout  3600s;
     }
