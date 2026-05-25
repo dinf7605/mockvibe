@@ -332,6 +332,7 @@ ssh ... 'cd mockvibe && bash deploy/scripts/deploy.sh'
 - 📅 [DAILY_PLAN.md](DAILY_PLAN.md) — 10주 50일 작업 계획
 - 🏛️ [docs/decisions/](docs/decisions/) — Architecture Decision Records
 - 📊 [docs/perf/D48-load-test.md](docs/perf/D48-load-test.md) — 부하 테스트 결과
+- 🩺 [docs/operations/d49-deployment-postmortem.md](docs/operations/d49-deployment-postmortem.md) — D49 운영 배포 중 잡은 이슈 8건 (oraclepki · Flyway baseline · Tomcat strict · springdoc 호환성 등)
 - 🏛️ [ADR-001 데이터 모델 V1 설계](docs/decisions/ADR-001-data-model.md)
 - 🏛️ [ADR-002 배포 토폴로지](docs/decisions/ADR-002-deployment-topology.md)
 
