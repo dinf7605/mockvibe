@@ -37,6 +37,13 @@ docker compose -f docker/docker-compose.prod.yml --env-file .env.prod pull || tr
 # 3) 기동
 docker compose -f docker/docker-compose.prod.yml --env-file .env.prod up -d
 
+# 3-b) nginx conf만 바뀐 경우 compose up -d는 conf 변경을 감지 못 한다.
+# 안전하게 reload 한 번 — 컨테이너 자체는 그대로 두고 conf만 다시 읽음.
+docker exec mockvibe-nginx nginx -t >/dev/null 2>&1 \
+  && docker exec mockvibe-nginx nginx -s reload >/dev/null 2>&1 \
+  && echo "[deploy] nginx reload OK" \
+  || echo "[deploy] nginx reload skipped (컨테이너 미준비 or conf 오류)"
+
 # 4) 헬스체크 폴링 (5초 × 30 = 최대 150초)
 echo "[deploy] 헬스체크 대기..."
 for i in $(seq 1 30); do

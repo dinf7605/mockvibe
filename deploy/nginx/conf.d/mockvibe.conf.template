@@ -80,15 +80,6 @@ server {
     proxy_read_timeout    60s;
 
     # ------------------------------------------------------------------------
-    # REST API
-    # ------------------------------------------------------------------------
-    location /api/ {
-        proxy_pass http://mockvibe_backend/api/;
-        # X-Forwarded-Host 는 Spring ForwardedHeaderFilter가 가장 자주 문제를
-        #일으키는 헤더라 의도적으로 빼둔다. Host 헤더만으로 충분.
-    }
-
-    # ------------------------------------------------------------------------
     # WebSocket (STOMP)
     # ------------------------------------------------------------------------
     location /ws {
@@ -132,8 +123,17 @@ server {
         access_log off;
         return 200 "ok\n";
     }
-    location / {
-        # 백엔드 도메인은 API 전용 — 루트는 프론트엔드(Vercel)로 안내
+
+    # 루트(/)만 exact match로 frontend redirect — preflight·실제 API path는 catch-all로
+    location = / {
         return 302 ${FRONTEND_URL_PLACEHOLDER};
+    }
+
+    # 그 외 모든 경로 — backend로 catch-all 프록시
+    # backend의 컨트롤러는 /auth, /portfolio, /trades, /stocks, /backtest, /risk,
+    # /orders, /admin, /history, /ai 등 /api prefix 없이 직접 매핑되어 있음.
+    # 더 구체적인 location(/actuator, /swagger-ui, /v3/api-docs, /ws)이 우선 매칭됨.
+    location / {
+        proxy_pass http://mockvibe_backend;
     }
 }
