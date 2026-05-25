@@ -2,6 +2,9 @@
 -- V2: 종목 마스터 시드 (한국 30 + 미국 30 = 60종목)
 -- - tick_size: KRX 1원 / 미국 0.01 (실제로는 가격대별로 다르지만 단순화)
 -- - current_price: NULL로 두고 Provider(D07~D14)가 채운다
+-- - 회사명에 '&'가 포함된 종목은 Oracle quote literal q'[...]' 로 escape하여
+--   Flyway/SQL*Plus의 substitution variable(&xxx) 오해석을 방지한다.
+--   (영향 4건: KT&G, Johnson & Johnson, Procter & Gamble, Merck & Co.)
 -- ============================================================================
 
 -- ===== 한국 30종목 (KRX) =====
@@ -27,7 +30,7 @@ INSERT INTO STOCKS (ticker, market, currency, company_name, sector, region, tick
 INSERT INTO STOCKS (ticker, market, currency, company_name, sector, region, tick_size) VALUES ('051910', 'KRX', 'KRW', 'LG화학',              'Chemical',      'KR', 1);
 INSERT INTO STOCKS (ticker, market, currency, company_name, sector, region, tick_size) VALUES ('006400', 'KRX', 'KRW', '삼성SDI',             'Battery',       'KR', 1);
 INSERT INTO STOCKS (ticker, market, currency, company_name, sector, region, tick_size) VALUES ('096770', 'KRX', 'KRW', 'SK이노베이션',        'Energy',        'KR', 1);
-INSERT INTO STOCKS (ticker, market, currency, company_name, sector, region, tick_size) VALUES ('033780', 'KRX', 'KRW', 'KT&G',                'Consumer',      'KR', 1);
+INSERT INTO STOCKS (ticker, market, currency, company_name, sector, region, tick_size) VALUES ('033780', 'KRX', 'KRW', q'[KT&G]',            'Consumer',      'KR', 1);
 INSERT INTO STOCKS (ticker, market, currency, company_name, sector, region, tick_size) VALUES ('009150', 'KRX', 'KRW', '삼성전기',            'Electronics',   'KR', 1);
 INSERT INTO STOCKS (ticker, market, currency, company_name, sector, region, tick_size) VALUES ('010130', 'KRX', 'KRW', '고려아연',            'Materials',     'KR', 1);
 INSERT INTO STOCKS (ticker, market, currency, company_name, sector, region, tick_size) VALUES ('011200', 'KRX', 'KRW', 'HMM',                 'Shipping',      'KR', 1);
@@ -48,14 +51,14 @@ INSERT INTO STOCKS (ticker, market, currency, company_name, sector, region, tick
 INSERT INTO STOCKS (ticker, market, currency, company_name, sector, region, tick_size) VALUES ('JPM',   'NYSE',   'USD', 'JPMorgan Chase & Co.',    'Financial',     'US', 0.01);
 INSERT INTO STOCKS (ticker, market, currency, company_name, sector, region, tick_size) VALUES ('V',     'NYSE',   'USD', 'Visa Inc.',               'Financial',     'US', 0.01);
 INSERT INTO STOCKS (ticker, market, currency, company_name, sector, region, tick_size) VALUES ('UNH',   'NYSE',   'USD', 'UnitedHealth Group',      'Healthcare',    'US', 0.01);
-INSERT INTO STOCKS (ticker, market, currency, company_name, sector, region, tick_size) VALUES ('JNJ',   'NYSE',   'USD', 'Johnson & Johnson',       'Healthcare',    'US', 0.01);
+INSERT INTO STOCKS (ticker, market, currency, company_name, sector, region, tick_size) VALUES ('JNJ',   'NYSE',   'USD', q'[Johnson & Johnson]',    'Healthcare',    'US', 0.01);
 INSERT INTO STOCKS (ticker, market, currency, company_name, sector, region, tick_size) VALUES ('MA',    'NYSE',   'USD', 'Mastercard Inc.',         'Financial',     'US', 0.01);
 INSERT INTO STOCKS (ticker, market, currency, company_name, sector, region, tick_size) VALUES ('XOM',   'NYSE',   'USD', 'Exxon Mobil Corp.',       'Energy',        'US', 0.01);
-INSERT INTO STOCKS (ticker, market, currency, company_name, sector, region, tick_size) VALUES ('PG',    'NYSE',   'USD', 'Procter & Gamble',        'Consumer',      'US', 0.01);
+INSERT INTO STOCKS (ticker, market, currency, company_name, sector, region, tick_size) VALUES ('PG',    'NYSE',   'USD', q'[Procter & Gamble]',     'Consumer',      'US', 0.01);
 INSERT INTO STOCKS (ticker, market, currency, company_name, sector, region, tick_size) VALUES ('AVGO',  'NASDAQ', 'USD', 'Broadcom Inc.',           'Technology',    'US', 0.01);
 INSERT INTO STOCKS (ticker, market, currency, company_name, sector, region, tick_size) VALUES ('HD',    'NYSE',   'USD', 'Home Depot Inc.',         'Consumer',      'US', 0.01);
 INSERT INTO STOCKS (ticker, market, currency, company_name, sector, region, tick_size) VALUES ('COST',  'NASDAQ', 'USD', 'Costco Wholesale',        'Consumer',      'US', 0.01);
-INSERT INTO STOCKS (ticker, market, currency, company_name, sector, region, tick_size) VALUES ('MRK',   'NYSE',   'USD', 'Merck & Co.',             'Healthcare',    'US', 0.01);
+INSERT INTO STOCKS (ticker, market, currency, company_name, sector, region, tick_size) VALUES ('MRK',   'NYSE',   'USD', q'[Merck & Co.]',          'Healthcare',    'US', 0.01);
 INSERT INTO STOCKS (ticker, market, currency, company_name, sector, region, tick_size) VALUES ('ABBV',  'NYSE',   'USD', 'AbbVie Inc.',             'Healthcare',    'US', 0.01);
 INSERT INTO STOCKS (ticker, market, currency, company_name, sector, region, tick_size) VALUES ('WMT',   'NYSE',   'USD', 'Walmart Inc.',            'Consumer',      'US', 0.01);
 INSERT INTO STOCKS (ticker, market, currency, company_name, sector, region, tick_size) VALUES ('KO',    'NYSE',   'USD', 'Coca-Cola Co.',           'Consumer',      'US', 0.01);
