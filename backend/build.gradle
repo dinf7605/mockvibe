@@ -39,6 +39,10 @@ dependencies {
 	implementation 'org.flywaydb:flyway-core'
 	implementation 'org.flywaydb:flyway-database-oracle'
 	runtimeOnly 'com.oracle.database.jdbc:ojdbc11'
+	// Oracle Wallet(cwallet.sso) 자동로그인 지원
+	// — 없으면 운영(Autonomous DB) 부팅 시 ORA-17957: Unable to initialize the key store
+	// — Java 11+/ojdbc11 23.7 이상은 oraclepki 단독으로 osdt_cert/core 번들 포함
+	runtimeOnly 'com.oracle.database.security:oraclepki:23.7.0.25.01'
 
 	// JWT
 	implementation "io.jsonwebtoken:jjwt-api:${jjwtVersion}"
