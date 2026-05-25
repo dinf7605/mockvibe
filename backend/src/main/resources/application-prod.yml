@@ -24,15 +24,16 @@ spring:
   flyway:
     enabled: true
     locations: classpath:db/migration
-    # 빈 DB일 때는 V1부터 정상 적용해야 함.
-    # baseline-on-migrate=true는 V1을 baseline으로만 표시(실행 X)하는 부작용이 있어
-    # 신규 ADB에서는 false로 두어야 V1 CREATE TABLE이 실제로 돈다.
-    baseline-on-migrate: false
+    # ADB는 항상 시스템 테이블(DBTOOLS$EXECUTION_HISTORY 등)이 ADMIN schema에
+    # 존재하므로 Flyway는 "non-empty schema"로 본다. 이 경우 baseline-on-migrate를
+    # 끄면 'Found non-empty schema(s) but no schema history table' 에러로 부팅 실패.
+    # 따라서 true로 두되, baseline-version=0 으로 V0를 가상 baseline으로 표시하여
+    # 실제 V1부터 정상 적용되도록 한다.
+    baseline-on-migrate: true
+    baseline-version: 0
     # 부팅 시 schema_history의 failed migration entry를 자동 정리 후 재시도.
     # 운영 중 일회성 SQL 실패가 다음 부팅을 막는 무한 루프 방지 (validate 단계 회복).
     repair-on-migrate: true
-    # 향후 컨텐츠 변경 시 checksum mismatch도 자동 보정
-    validate-migration-naming: true
 
   data:
     redis:
