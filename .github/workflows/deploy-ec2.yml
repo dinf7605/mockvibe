@@ -1,0 +1,47 @@
+name: Deploy to EC2
+
+# docker-publish가 끝난 후 자동 실행 (새 이미지 GHCR 게시 보장)
+# 또는 수동 트리거 (workflow_dispatch)
+on:
+  workflow_run:
+    workflows: ["Docker Publish (Backend → GHCR)"]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-ec2
+  cancel-in-progress: false   # 배포는 중간에 취소하지 않음
+
+jobs:
+  deploy:
+    # docker-publish 성공 또는 수동 트리거일 때만
+    if: >
+      github.event_name == 'workflow_dispatch' ||
+      github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - name: SSH to EC2 and deploy
+        uses: appleboy/ssh-action@v1.2.2
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ubuntu
+          key: ${{ secrets.EC2_SSH_KEY }}
+          port: 22
+          # GitHub runner와 EC2 사이 SSH 타임아웃을 넉넉히 (Spring Boot 부팅 + 헬스 폴링 ~3분)
+          command_timeout: 5m
+          script: |
+            set -e
+            echo "==> [deploy] cd ~/mockvibe"
+            cd ~/mockvibe
+
+            echo "==> [deploy] git fetch + reset (untracked .env.prod / oracle-wallet 보존)"
+            git fetch origin main
+            git reset --hard origin/main
+
+            echo "==> [deploy] deploy.sh 실행"
+            bash deploy/scripts/deploy.sh
+
+            echo "==> [deploy] 외부 health 한번 더"
+            curl -fsS "https://$(grep '^APP_DOMAIN=' .env.prod | cut -d= -f2)/actuator/health"
+            echo
