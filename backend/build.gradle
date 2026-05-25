@@ -21,7 +21,7 @@ ext {
 	jjwtVersion = '0.12.6'
 	resilience4jVersion = '2.2.0'
 	bucket4jVersion = '8.10.1'
-	springdocVersion = '2.6.0'
+	springdocVersion = '2.8.6'
 }
 
 dependencies {
