@@ -57,6 +57,13 @@ docker/oracle-data/
 docker/redis-data/
 
 # ==========================
+# Nginx 런타임 (template → conf 치환 결과)
+# ==========================
+deploy/nginx/conf.d/*.conf
+!deploy/nginx/conf.d/*.template
+deploy/nginx/conf.d.runtime/
+
+# ==========================
 # 빌드 산출물
 # ==========================
 *.jar

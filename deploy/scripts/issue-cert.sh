@@ -12,12 +12,12 @@ source .env.prod
 : "${APP_DOMAIN:?APP_DOMAIN 필수}"
 LE_EMAIL="${LE_EMAIL:-admin@$APP_DOMAIN}"
 
-# nginx 설정의 플레이스홀더를 실 도메인/프론트URL로 치환 → conf.d.runtime/
-RUNTIME_DIR="deploy/nginx/conf.d.runtime"
-mkdir -p "$RUNTIME_DIR"
+# nginx conf 플레이스홀더 치환 (deploy.sh와 동일 — *.template → *.conf)
+# 인증서가 없는 첫 발급 시점에는 nginx가 안 뜨므로 결과 파일은 deploy.sh에서 다시 쓰여지지만,
+# 이후 운영에서 갱신 시에도 호출될 수 있어 일관성을 위해 여기서도 만들어둔다.
 sed -e "s|APP_DOMAIN_PLACEHOLDER|${APP_DOMAIN}|g" \
-    -e "s|\${FRONTEND_URL_PLACEHOLDER}|${FRONTEND_URL}|g" \
-    deploy/nginx/conf.d/mockvibe.conf > "$RUNTIME_DIR/mockvibe.conf"
+    -e "s|\${FRONTEND_URL_PLACEHOLDER}|${FRONTEND_URL:-https://localhost}|g" \
+    deploy/nginx/conf.d/mockvibe.conf.template > deploy/nginx/conf.d/mockvibe.conf
 
 # 인증서 발급 (HTTP-01 webroot 챌린지)
 # 처음에는 nginx의 ssl_certificate 경로가 없어서 nginx 컨테이너가 안 뜨므로,

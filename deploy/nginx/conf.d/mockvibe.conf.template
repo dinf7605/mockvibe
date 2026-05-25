@@ -1,9 +1,9 @@
 # ============================================================================
 # MockVibe — Nginx 리버스 프록시 (HTTPS + WebSocket)
 #
-# 환경변수 치환: 운영 부팅 시 `envsubst < mockvibe.conf.template > mockvibe.conf`
-# 또는 그대로 두고 ${APP_DOMAIN}만 sed로 치환해 사용.
-# (compose에서는 :ro로 마운트되므로 호스트에서 미리 치환된 파일을 마운트할 것)
+# 환경변수 치환: deploy/scripts/deploy.sh 가 APP_DOMAIN_PLACEHOLDER /
+# FRONTEND_URL_PLACEHOLDER 두 토큰을 .env.prod 값으로 sed 치환한 뒤
+# nginx 컨테이너에 마운트한다.
 # ============================================================================
 
 # upstream — compose 네트워크 내부 서비스명
@@ -62,20 +62,30 @@ server {
     # 파일 업로드/응답 크기 (기본 1MB는 일부 응답에서 부족)
     client_max_body_size 10m;
 
+    # ========================================================================
+    # 모든 location의 upstream 호출 default
+    # - HTTP/1.1: Tomcat 10.1 이상은 1.0 요청을 strict하게 거부할 수 있다
+    # - Connection "": keepalive upstream을 위해 hop-by-hop Connection 헤더 제거
+    # - Host: backend가 Spring forward-headers-strategy=framework로 해석
+    # ========================================================================
+    proxy_http_version 1.1;
+    proxy_set_header   Connection        "";
+    proxy_set_header   Host              $host;
+    proxy_set_header   X-Real-IP         $remote_addr;
+    proxy_set_header   X-Forwarded-For   $proxy_add_x_forwarded_for;
+    proxy_set_header   X-Forwarded-Proto $scheme;
+
+    proxy_connect_timeout 10s;
+    proxy_send_timeout    60s;
+    proxy_read_timeout    60s;
+
     # ------------------------------------------------------------------------
     # REST API
     # ------------------------------------------------------------------------
     location /api/ {
         proxy_pass http://mockvibe_backend/api/;
-        proxy_http_version 1.1;
-        proxy_set_header Host              $host;
-        proxy_set_header X-Real-IP         $remote_addr;
-        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-        proxy_set_header X-Forwarded-Host  $host;
-        proxy_read_timeout  60s;
-        proxy_send_timeout  60s;
-        proxy_connect_timeout 10s;
+        # X-Forwarded-Host 는 Spring ForwardedHeaderFilter가 가장 자주 문제를
+        #일으키는 헤더라 의도적으로 빼둔다. Host 헤더만으로 충분.
     }
 
     # ------------------------------------------------------------------------
@@ -83,14 +93,10 @@ server {
     # ------------------------------------------------------------------------
     location /ws {
         proxy_pass http://mockvibe_backend/ws;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade           $http_upgrade;
-        proxy_set_header Connection        $connection_upgrade;
-        proxy_set_header Host              $host;
-        proxy_set_header X-Real-IP         $remote_addr;
-        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-        # WebSocket은 장기 연결 — heartbeat 간격(기본 10s)보다 충분히 큰 값
+        # WebSocket 전용: Connection/Upgrade 헤더로 server 블록 default 오버라이드
+        proxy_set_header Upgrade    $http_upgrade;
+        proxy_set_header Connection $connection_upgrade;
+        # 장기 연결 — heartbeat 간격(기본 10s)보다 충분히 큰 값
         proxy_read_timeout  3600s;
         proxy_send_timeout  3600s;
     }
