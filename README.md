@@ -9,8 +9,14 @@
 [![Oracle](https://img.shields.io/badge/Oracle-XE%2021c-F80000?logo=oracle)](https://www.oracle.com/database/technologies/appdev/xe.html)
 [![CI](https://github.com/dinf7605/mockvibe/actions/workflows/ci.yml/badge.svg)](https://github.com/dinf7605/mockvibe/actions/workflows/ci.yml)
 [![Docker](https://github.com/dinf7605/mockvibe/actions/workflows/docker-publish.yml/badge.svg)](https://github.com/dinf7605/mockvibe/actions/workflows/docker-publish.yml)
+[![Deploy](https://github.com/dinf7605/mockvibe/actions/workflows/deploy-ec2.yml/badge.svg)](https://github.com/dinf7605/mockvibe/actions/workflows/deploy-ec2.yml)
 [![Tests](https://img.shields.io/badge/tests-80%2F80-success)]()
 [![License](https://img.shields.io/badge/license-MIT-blue)]()
+
+🌐 **Live**:
+[App ▸ mockvibe-hazel.vercel.app](https://mockvibe-hazel.vercel.app) &nbsp;|&nbsp;
+[API ▸ mockvibe.duckdns.org](https://mockvibe.duckdns.org/actuator/health) &nbsp;|&nbsp;
+[Swagger UI](https://mockvibe.duckdns.org/swagger-ui/index.html)
 
 ---
 
@@ -257,12 +263,14 @@ mockvibe/
 - ✅ Phase 7 관리자 + 운영 + Docker + k6
 
 ### 진행 예정
-- 🟡 **D49 (진행 중)** — 설정/CI/CD 완료, 실 EC2 부팅·도메인 발급 대기
-  - ✅ `application-prod.yml` / `docker-compose.prod.yml` / Nginx HTTPS 템플릿
-  - ✅ `deploy/scripts/` (bootstrap·issue-cert·deploy·rollback)
-  - ✅ GitHub Actions CI (test) + Docker Publish (GHCR)
-  - ✅ Vercel `vercel.json` + 프론트 env
-  - ⏳ EC2 인스턴스 생성 → DuckDNS 도메인 → Let's Encrypt 발급 → 실 배포 검증
+- ✅ **D49 (완료, 2026-05-26)** — 운영 환경 가동 + 자동 배포
+  - ✅ AWS EC2 t3.micro (ap-northeast-2) + Elastic IP + DuckDNS
+  - ✅ Oracle Autonomous Database (Always Free, ap-chuncheon-1) + Wallet mTLS
+  - ✅ Nginx + Let's Encrypt 자동 갱신 + WebSocket/STOMP HTTPS
+  - ✅ Vercel 프론트 배포 + CORS 매칭
+  - ✅ **`git push` 만으로 자동 배포** (GitHub Actions → SSH → EC2)
+  - ✅ 종단 테스트 통과 (회원가입 → 로그인 → 종목 상세 → wss 101)
+  - 📄 [11건의 운영 이슈 진단 기록](docs/operations/d49-deployment-postmortem.md)
 - ⏳ **D50** ADR 12개 추가 + 데모 영상
 - 💡 OpenTelemetry 분산 추적
 - 💡 Web Push 알림 (지정가 체결 / 리스크 임계 돌파)

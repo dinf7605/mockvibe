@@ -1,17 +1,17 @@
-# D49 운영 배포 Postmortem — 8건의 이슈와 해결
+# D49 운영 배포 Postmortem — 11건의 이슈와 해결
 
 | | |
 |---|---|
 | **일자** | 2026-05-22 ~ 2026-05-26 |
-| **환경** | AWS EC2 t3.micro (ap-northeast-2) · Oracle ADB Always Free (ap-chuncheon-1) · DuckDNS · Let's Encrypt |
+| **환경** | AWS EC2 t3.micro (ap-northeast-2) · Oracle ADB Always Free (ap-chuncheon-1) · DuckDNS · Let's Encrypt · Vercel Hobby |
 | **스택** | Spring Boot 3.5.6 · Flyway 11.7.2 · Oracle JDBC 23ai · Tomcat 10.1 · Nginx 1.27 · springdoc 2.6 → 2.8.6 |
-| **결과** | 모든 endpoint(actuator/health · swagger-ui · v3/api-docs · /api/*) 정상 가동 |
+| **결과** | 모든 endpoint(actuator/health · swagger-ui · v3/api-docs · /auth · /portfolio · /stocks · wss /ws) 정상 가동 + GitHub Actions 자동 배포 가동 |
 
 ---
 
 ## TL;DR
 
-D48까지 로컬에서 통과한 코드를 운영 환경(EC2 + Oracle ADB)에 처음 올리며 **총 8건의 이슈**가 발생했다. 모두 **로컬에서는 절대 안 나타나는** 운영 특화 문제였고 (외부 DB · TLS · 리버스 프록시 · 의존성 호환성), 각각의 진단 → 해결 → 영구 수정까지 기록한다.
+D48까지 로컬에서 통과한 코드를 운영 환경(EC2 + Oracle ADB + Vercel)에 처음 올리며 **총 11건의 이슈**가 발생했다. 모두 **로컬에서는 절대 안 나타나는** 운영 특화 문제였고 (외부 DB · TLS · 리버스 프록시 · 의존성 호환성 · 브라우저 ALPN), 각각의 진단 → 해결 → 영구 수정까지 기록한다.
 
 | # | 카테고리 | 한 줄 요약 |
 |---|---|---|
@@ -23,6 +23,9 @@ D48까지 로컬에서 통과한 코드를 운영 환경(EC2 + Oracle ADB)에 �
 | 6 | Flyway Recovery | failed migration entry가 다음 부팅을 영구 차단 |
 | 7 | Nginx ↔ Tomcat | HTTP/1.0 요청을 Tomcat 10.1이 strict 모드에서 거부 |
 | 8 | 라이브러리 호환 | springdoc 2.6 ↔ Spring Framework 6.2 (Boot 3.5) 시그니처 변경 |
+| 9 | Nginx Routing | 프론트가 `/auth/*` 호출하는데 nginx는 `/api/` 만 백엔드 프록시로 가정 |
+| 10 | Nginx Header 상속 | location 안에 proxy_set_header 하나라도 있으면 server default 상속 X |
+| 11 | HTTP/2 ↔ WebSocket | `http2 on` + ALPN h2 협상이 wss Upgrade 헤더를 nginx 단에서 400 거부 |
 
 ---
 
@@ -299,6 +302,142 @@ ext { springdocVersion = '2.8.6' }   // 2.6.0 → 2.8.6
 
 ---
 
+## 이슈 9. nginx 라우팅 — backend는 `/api` prefix 없이 매핑
+
+### 증상
+Vercel 종단 테스트 중 회원가입 클릭 → 브라우저 콘솔:
+```
+Access to XMLHttpRequest at 'https://mockvibe.duckdns.org/auth/signup' from
+origin 'https://mockvibe-hazel.vercel.app' has been blocked by CORS policy:
+Response to preflight request doesn't pass access control check:
+Redirect is not allowed for a preflight request.
+```
+
+### 원인
+- 프론트 axios: `client.ts` 의 baseURL = `VITE_API_BASE_URL` → `https://mockvibe.duckdns.org`
+- 호출: `api.post("/auth/signup", req)` → 최종 URL `https://mockvibe.duckdns.org/auth/signup`
+- 백엔드 컨트롤러: `@RequestMapping("/auth")` + `@PostMapping("/signup")` → **`/api` prefix 없음**
+- nginx conf: `location /api/ { proxy_pass backend; }` 만 정의 — 나머지 path는 catch-all `location / { return 302 ${FRONTEND_URL}; }`로 떨어짐
+- 브라우저가 preflight(OPTIONS) 보냈는데 nginx가 302 redirect 응답 → CORS spec 위반(preflight에 redirect 허용 X) → 브라우저 차단
+
+### 해결 (영구)
+```nginx
+location = / {
+    return 302 ${FRONTEND_URL_PLACEHOLDER};   # 루트만 redirect
+}
+location / {
+    proxy_pass http://mockvibe_backend;       # 나머지는 모두 backend
+}
+```
+더 구체적인 `location /actuator`, `/swagger-ui`, `/ws` 등은 nginx 매칭 우선순위로 catch-all 보다 먼저 매칭됨 — 영향 없음.
+
+### 관련 커밋
+`e6351b8 fix(nginx): backend 라우팅 catch-all로 변경 — /api/ prefix는 매핑에 존재하지 않음`
+
+### 교훈
+- **운영 시 외부 도메인을 두 가지 역할**(API + 프론트 redirect)로 쓰는 패턴은 catch-all 위치를 명확히 설계해야 한다.
+- nginx의 `location =` (exact) vs `location /` (prefix catch-all) 우선순위를 잘 활용.
+
+---
+
+## 이슈 10. nginx `proxy_set_header` 비상속 함정
+
+### 증상
+WebSocket handshake가 백엔드까지 도달했지만 **Tomcat 400 + 기본 에러 페이지**:
+```html
+<title>HTTP Status 400 – Bad Request</title>
+```
+다른 endpoint (`/actuator/health`, `/swagger-ui`)는 정상.
+
+### 원인
+nginx의 **상속 규칙**: "한 location 블록에 `proxy_set_header` 가 **하나라도** 있으면 server 블록의 **모든** `proxy_set_header` 가 상속되지 않는다."
+
+우리 `/ws` location:
+```nginx
+location /ws {
+    proxy_pass http://mockvibe_backend/ws;
+    proxy_set_header Upgrade    $http_upgrade;
+    proxy_set_header Connection $connection_upgrade;
+}
+```
+WebSocket 전용 두 헤더만 명시한 순간 **server 블록의 `Host $host`, `X-Forwarded-*` 가 /ws에는 전달 안 됨**. Host 헤더 부재 → Tomcat 10.1 strict 모드 400.
+
+`/api/`, `/swagger-ui` 같은 다른 location은 `proxy_set_header` 가 없어서 server default 그대로 상속 → 정상. **WebSocket location만 이 트랩에 걸린 이유**.
+
+### 해결 (영구)
+/ws location 안에 server default를 **모두 다시 명시**:
+```nginx
+location /ws {
+    proxy_pass http://mockvibe_backend/ws;
+    proxy_http_version 1.1;
+    proxy_set_header Host              $host;
+    proxy_set_header X-Real-IP         $remote_addr;
+    proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_set_header Upgrade    $http_upgrade;
+    proxy_set_header Connection $connection_upgrade;
+    proxy_read_timeout  3600s;
+}
+```
+
+### 관련 커밋
+`9188245 fix(nginx): /ws location에 Host 등 헤더 명시 — proxy_set_header 비상속 함정`
+
+### 교훈
+- **nginx의 directive 상속 규칙은 directive마다 다르다.** `proxy_set_header` 는 비상속, `proxy_pass_request_headers` 는 상속, `proxy_http_version` 은 location 자체 default를 가짐.
+- 공식 문서: *"These directives are inherited from the previous configuration level if and only if there are no proxy_set_header directives defined on the current level."*
+
+---
+
+## 이슈 11. HTTP/2 ↔ WebSocket Upgrade 충돌 (ALPN 협상)
+
+### 증상
+nginx /ws에 Host 헤더 명시한 후에도 wss handshake가 **nginx 단에서 400** (nginx 자체 응답, Tomcat 페이지 아님):
+```
+HTTP/2 400
+server: nginx/1.27.5
+content-length: 34
+```
+backend access log에도 흔적 없음 — **nginx가 backend로 proxy도 안 함**.
+
+### 진단 분기점
+```bash
+# curl 기본 (ALPN h2 협상)
+curl -kis https://localhost/ws -H "Upgrade: websocket" ...
+# → HTTP/2 400 즉시
+
+# HTTP/1.1 강제
+curl --http1.1 -kis https://localhost/ws -H "Upgrade: websocket" ...
+# → 응답이 끝나지 않음 (WebSocket connection 유지로 인한 무한 대기) = 실제로는 통과!
+```
+**HTTP/1.1에서는 통과, HTTP/2에서는 거부** = ALPN 협상 단계가 원인 확정.
+
+### 원인
+- WebSocket(RFC 6455)은 **HTTP/1.1의 Upgrade 메커니즘** 기반
+- 우리 nginx server 블록에 `http2 on;` → 클라이언트가 ALPN에서 `h2` offer하면 nginx도 h2로 협상
+- HTTP/2 에는 Upgrade 헤더 의미가 없음 → nginx가 잘못된 요청으로 400 거부
+- RFC 8441 (Bootstrapping WebSocket via HTTP/2) 이 존재하지만 브라우저 구현 전무
+
+### 해결
+```nginx
+server {
+    listen 443 ssl;
+    listen [::]:443 ssl;
+    # http2 on;        ← 제거. ALPN 에서 h2 협상 안 되도록
+}
+```
+모든 트래픽이 HTTP/1.1 로. 현재 트래픽 규모(~50 VU)에선 성능 차이 미미.
+
+### 관련 커밋
+`b718aee fix(nginx): http2 비활성화 — WebSocket Upgrade 와 HTTP/2 ALPN 충돌 해소`
+
+### 교훈
+- **WebSocket과 HTTP/2 는 같은 서버 블록에서 공존이 어렵다.** 대규모 운영에선 `ws.<domain>` 서브도메인으로 분리하고 메인 도메인만 http2 적용.
+- **시스템 layer별 격리 진단**의 좋은 사례: curl 옵션 하나(`--http1.1`)로 ALPN 단계와 Upgrade 단계를 분리해 원인 좁힘.
+- 브라우저 시크릿 모드 vs 일반 모드는 connection pool / ALPN 캐시가 별도 → 운영 결함과 사용자 환경 캐시 문제를 격리 진단하는 유용한 도구.
+
+---
+
 ## 종합 교훈
 
 ### 1. "로컬 통과 ≠ 운영 통과" — D48까지의 80/80 테스트가 무용지물이었던 이유
@@ -356,10 +495,11 @@ docker logs mockvibe-app --tail 200 2>&1 | grep -B 2 -A 40 -i "error\|exception\
 
 ---
 
-## 다음 작업 (D49 마무리 / D50 진입)
+## 다음 작업 (D50)
 
-- [ ] Vercel 프론트 임포트 + `FRONTEND_URL` 갱신
-- [ ] 종단 테스트 (회원가입 → 로그인 → 매수)
-- [ ] ADR-003 작성 (운영 회복력 4종: oraclepki + repair-on-migrate + baseline-version=0 + nginx server-default)
+- [x] Vercel 프론트 임포트 + `FRONTEND_URL` 갱신
+- [x] 종단 테스트 (회원가입 → 로그인 → 종목 상세 → wss handshake 101)
+- [x] GitHub Actions 자동 배포 (deploy-ec2.yml + SSH key secret)
+- [ ] ADR-003 작성 (운영 회복력 모음: oraclepki + Flyway repair/baseline + nginx server-default/template + WebSocket header inheritance + HTTP/2 분리)
 - [ ] README 운영 URL/배지 갱신
 - [ ] 데모 영상
