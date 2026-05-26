@@ -32,7 +32,7 @@ jobs:
       - name: Install MkDocs Material
         run: |
           pip install --upgrade pip
-          pip install mkdocs-material==9.5.46
+          pip install -r requirements.txt
 
       - name: Configure Pages
         uses: actions/configure-pages@v5

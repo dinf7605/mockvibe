@@ -1,0 +1,4 @@
+# GitHub Pages 문서 사이트 빌드용 (mkdocs-material).
+# 운영 백엔드/프론트와는 무관 — .github/workflows/pages.yml 에서만 사용.
+
+mkdocs-material==9.5.46
