@@ -49,7 +49,11 @@ server {
 server {
     listen 443 ssl;
     listen [::]:443 ssl;
-    http2 on;
+    # ⚠️ http2 off — WebSocket Upgrade 와 HTTP/2 ALPN 협상이 충돌한다.
+    # WebSocket spec(RFC 6455)은 HTTP/1.1 기반이라 ALPN 에서 h2 협상되면
+    # nginx 가 WebSocket Upgrade 요청을 400 으로 거부.
+    # HTTP/2 위 WebSocket(RFC 8441) 은 클라이언트 지원이 없어 실효성 X.
+    # REST API 트래픽은 HTTP/1.1 로 충분.
     server_name APP_DOMAIN_PLACEHOLDER;
 
     # Let's Encrypt 인증서 경로 (compose 볼륨)
