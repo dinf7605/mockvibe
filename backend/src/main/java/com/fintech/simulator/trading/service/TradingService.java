@@ -3,11 +3,10 @@ package com.fintech.simulator.trading.service;
 import com.fintech.simulator.common.exception.BusinessException;
 import com.fintech.simulator.common.exception.ErrorCode;
 import com.fintech.simulator.fx.FxRateProvider;
-import com.fintech.simulator.market.cache.PriceCache;
 import com.fintech.simulator.market.domain.Stock;
-import com.fintech.simulator.market.provider.MarketDataProvider;
-import com.fintech.simulator.market.provider.Quote;
 import com.fintech.simulator.market.repository.StockRepository;
+import com.fintech.simulator.market.service.PriceLookupService;
+import com.fintech.simulator.market.service.PriceLookupService.PricePoint;
 import com.fintech.simulator.portfolio.domain.Holding;
 import com.fintech.simulator.portfolio.domain.Wallet;
 import com.fintech.simulator.portfolio.repository.HoldingRepository;
@@ -27,7 +26,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.util.List;
 import java.util.Optional;
 
 /**
@@ -53,8 +51,7 @@ public class TradingService {
     private final WalletRepository walletRepository;
     private final HoldingRepository holdingRepository;
     private final OrderRepository orderRepository;
-    private final PriceCache priceCache;
-    private final List<MarketDataProvider> providers;
+    private final PriceLookupService priceLookup;
     private final FxRateProvider fxRateProvider;
     private final TradingProperties tradingProperties;
     private final ApplicationEventPublisher eventPublisher;
@@ -67,7 +64,8 @@ public class TradingService {
         Stock stock = stockRepository.findById(ticker)
                 .orElseThrow(() -> new BusinessException(ErrorCode.STOCK_NOT_FOUND));
 
-        BigDecimal price = currentPrice(ticker);
+        PricePoint pricePoint = priceLookup.lookup(ticker);
+        BigDecimal price = pricePoint.price();
         BigDecimal fxRate = fxRateProvider.rate(stock.getCurrency(), "KRW");
         BigDecimal grossKrw = price.multiply(quantity).multiply(fxRate);
         BigDecimal feeRate = tradingProperties.feeRateFor(stock.getCurrency());
@@ -93,11 +91,12 @@ public class TradingService {
                 Order.marketSell(userId, ticker, price, quantity, fxRate, feeKrw, proceedsKrw)
         );
 
-        log.info("Market SELL: user={}, ticker={}, qty={}, proceedsKRW={}, balanceAfter={}",
-                userId, ticker, quantity, proceedsKrw, wallet.getCashBalance());
+        log.info("Market SELL: user={}, ticker={}, qty={}, proceedsKRW={}, balanceAfter={}, priceSource={}",
+                userId, ticker, quantity, proceedsKrw, wallet.getCashBalance(), pricePoint.source());
         eventPublisher.publishEvent(new OrderExecutedEvent(
                 userId, ticker, OrderSide.SELL, price, quantity, proceedsKrw));
-        return OrderResponse.from(order, wallet.getCashBalance());
+        return OrderResponse.from(order, wallet.getCashBalance(),
+                pricePoint.source(), pricePoint.asOfDate());
     }
 
     @Transactional
@@ -112,7 +111,8 @@ public class TradingService {
             throw new BusinessException(ErrorCode.STOCK_INACTIVE);
         }
 
-        BigDecimal price = currentPrice(ticker);
+        PricePoint pricePoint = priceLookup.lookup(ticker);
+        BigDecimal price = pricePoint.price();
         BigDecimal fxRate = fxRateProvider.rate(stock.getCurrency(), "KRW");
         BigDecimal grossKrw = price.multiply(quantity).multiply(fxRate);
         BigDecimal feeRate = tradingProperties.feeRateFor(stock.getCurrency());
@@ -143,11 +143,12 @@ public class TradingService {
                 Order.marketBuy(userId, ticker, price, quantity, fxRate, feeKrw, totalKrw)
         );
 
-        log.info("Market BUY: user={}, ticker={}, qty={}, totalKRW={}, balanceAfter={}",
-                userId, ticker, quantity, totalKrw, wallet.getCashBalance());
+        log.info("Market BUY: user={}, ticker={}, qty={}, totalKRW={}, balanceAfter={}, priceSource={}",
+                userId, ticker, quantity, totalKrw, wallet.getCashBalance(), pricePoint.source());
         eventPublisher.publishEvent(new OrderExecutedEvent(
                 userId, ticker, OrderSide.BUY, price, quantity, totalKrw));
-        return OrderResponse.from(order, wallet.getCashBalance());
+        return OrderResponse.from(order, wallet.getCashBalance(),
+                pricePoint.source(), pricePoint.asOfDate());
     }
 
     /**
@@ -212,14 +213,4 @@ public class TradingService {
         }
     }
 
-    private BigDecimal currentPrice(String ticker) {
-        Optional<Quote> q = priceCache.get(ticker)
-                .or(() -> providers.stream()
-                        .filter(p -> p.supports(ticker))
-                        .map(p -> p.getQuote(ticker))
-                        .filter(Optional::isPresent).map(Optional::get)
-                        .findFirst());
-        return q.map(Quote::price)
-                .orElseThrow(() -> new BusinessException(ErrorCode.PRICE_NOT_AVAILABLE));
-    }
 }

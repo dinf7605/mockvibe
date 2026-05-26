@@ -5,6 +5,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Optional;
 
 public interface PriceHistoryRepository extends JpaRepository<PriceHistory, Long> {
 
@@ -12,4 +13,15 @@ public interface PriceHistoryRepository extends JpaRepository<PriceHistory, Long
             String ticker, LocalDate from, LocalDate to);
 
     long countByTicker(String ticker);
+
+    /**
+     * 가장 최근(=가장 큰 trade_date) 일봉 1건.
+     * 장 외 시간 매매 시 currentPrice fallback 으로 사용.
+     */
+    Optional<PriceHistory> findTopByTickerOrderByTradeDateDesc(String ticker);
+
+    /**
+     * 종목별 최근 N일 일봉 (오래된 → 최신 순으로 차트에 그대로 사용 가능).
+     */
+    List<PriceHistory> findTop365ByTickerOrderByTradeDateDesc(String ticker);
 }

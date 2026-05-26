@@ -9,9 +9,11 @@ interface ApiError { code?: string; message?: string }
 interface Props {
   ticker: string;
   currentPriceKrw: number | null;   // 예상 체결가(KRW 환산)
+  /** "종가 2026-05-20" 같은 가격 출처 안내. null 이면 실시간. */
+  priceSourceHint?: string | null;
 }
 
-export function TradePanel({ ticker, currentPriceKrw }: Props) {
+export function TradePanel({ ticker, currentPriceKrw, priceSourceHint }: Props) {
   const qc = useQueryClient();
   const [side, setSide] = useState<"BUY" | "SELL">("BUY");
   const [qty, setQty] = useState<string>("1");
@@ -79,6 +81,12 @@ export function TradePanel({ ticker, currentPriceKrw }: Props) {
         <span style={styles.estimateLabel}>예상 체결금액</span>
         <span style={styles.estimateValue} className="tabular">{formatKrw(estimate)}</span>
       </div>
+
+      {priceSourceHint && (
+        <div style={styles.sourceHint}>
+          💡 {priceSourceHint} 기준으로 모의 체결됩니다 (장 외 시간)
+        </div>
+      )}
 
       {error && <div style={styles.error}>{error}</div>}
       {toast && <div style={styles.toast}>{toast}</div>}
@@ -148,6 +156,12 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: 12, color: "var(--color-success)",
     background: "rgba(22, 163, 74, 0.10)", padding: "8px 12px",
     borderRadius: "var(--radius-sm)",
+  },
+  sourceHint: {
+    fontSize: 11, color: "var(--color-warning)",
+    background: "rgba(245, 158, 11, 0.10)", padding: "8px 12px",
+    borderRadius: "var(--radius-sm)",
+    lineHeight: 1.4,
   },
   submitBtn: {
     height: 48, color: "#fff",

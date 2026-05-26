@@ -7,7 +7,9 @@ import com.fintech.simulator.market.cache.PriceCache;
 import com.fintech.simulator.market.domain.Stock;
 import com.fintech.simulator.market.provider.MarketDataProvider;
 import com.fintech.simulator.market.provider.Quote;
+import com.fintech.simulator.market.repository.PriceHistoryRepository;
 import com.fintech.simulator.market.repository.StockRepository;
+import com.fintech.simulator.market.service.PriceLookupService;
 import com.fintech.simulator.portfolio.domain.Holding;
 import com.fintech.simulator.portfolio.domain.Wallet;
 import com.fintech.simulator.portfolio.repository.HoldingRepository;
@@ -45,15 +47,18 @@ class TradingServiceTest {
     @Mock OrderRepository orderRepository;
     @Mock MarketDataProvider providerA;
     @Mock FxRateProvider fxRateProvider;
+    @Mock PriceHistoryRepository priceHistoryRepository;
 
     PriceCache priceCache = new PriceCache();
+    PriceLookupService priceLookup;
     TradingProperties props = new TradingProperties(new BigDecimal("0.00015"), new BigDecimal("0.0025"));
     TradingService service;
 
     @BeforeEach
     void setUp() {
+        priceLookup = new PriceLookupService(priceCache, List.of(providerA), priceHistoryRepository);
         service = new TradingService(stockRepository, walletRepository, holdingRepository,
-                orderRepository, priceCache, List.of(providerA), fxRateProvider, props,
+                orderRepository, priceLookup, fxRateProvider, props,
                 event -> { /* no-op test publisher */ });
         priceCache.put(new Quote("005930", new BigDecimal("1000"), new BigDecimal("1000"), Instant.now()));
         given(fxRateProvider.rate(any(), any())).willReturn(BigDecimal.ONE);

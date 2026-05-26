@@ -1,8 +1,19 @@
 import { useEffect, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { createChart, ColorType, LineSeries, type IChartApi, type ISeriesApi } from "lightweight-charts";
-import { getStock } from "../api/stocks";
+import {
+  createChart,
+  ColorType,
+  CandlestickSeries,
+  type IChartApi,
+  type ISeriesApi,
+} from "lightweight-charts";
+import {
+  getStock,
+  getPriceHistory,
+  getLastClose,
+  type DailyCandle,
+} from "../api/stocks";
 import { useStompPrice } from "../hooks/useStompPrice";
 import { TradePanel } from "../components/TradePanel";
 import { formatKrw, formatPct, trendClass } from "../lib/format";
@@ -14,6 +25,23 @@ export default function StockDetailPage() {
     queryKey: ["stock", ticker],
     queryFn: () => getStock(ticker!),
     enabled: !!ticker,
+  });
+
+  // 90일 일봉 — 차트 + lastClose 폴백 양쪽에 사용
+  const { data: candles } = useQuery({
+    queryKey: ["price-history", ticker],
+    queryFn: () => getPriceHistory(ticker!, 90),
+    enabled: !!ticker,
+    staleTime: 60_000,
+  });
+
+  // 가장 최근 종가 (장 외 매매 안내용)
+  const { data: lastClose } = useQuery({
+    queryKey: ["last-close", ticker],
+    queryFn: () => getLastClose(ticker!),
+    enabled: !!ticker,
+    staleTime: 60_000,
+    retry: false,
   });
 
   const live = useStompPrice(ticker);
@@ -34,10 +62,16 @@ export default function StockDetailPage() {
 
   if (!ticker || !stock) return <div style={{ color: "var(--text-tertiary)" }}>불러오는 중...</div>;
 
-  const displayPrice = live?.price ?? stock.currentPrice ?? 0;
+  // 가격 우선순위: 실시간 → STOCKS.current_price → PRICE_HISTORY 최근 종가
+  const livePrice = live?.price ?? null;
+  const fallbackClose = lastClose?.close ?? null;
+  const displayPrice =
+    livePrice ?? stock.currentPrice ?? fallbackClose ?? 0;
+  const isUsingClose = livePrice == null && stock.currentPrice == null && fallbackClose != null;
   const changePct = live?.changePct ?? 0;
   const cls = trendClass(changePct);
-  // KRW 환산 — USD 종목은 임시 1380 (실제 환율은 백엔드가 fxRate로 계산)
+
+  // KRW 환산 (USD 종목 임시 환율)
   const fxRate = stock.currency === "USD" ? 1380 : 1;
   const estimatedKrw = displayPrice ? displayPrice * fxRate : null;
 
@@ -52,35 +86,49 @@ export default function StockDetailPage() {
           <span style={styles.priceValue} className={cls}>
             {stock.currency === "USD" ? `$${displayPrice.toFixed(2)}` : formatKrw(displayPrice)}
           </span>
-          <span style={{ marginLeft: 12, fontSize: 14 }} className={cls}>
-            {formatPct(changePct)}
-          </span>
+          {livePrice != null && (
+            <span style={{ marginLeft: 12, fontSize: 14 }} className={cls}>
+              {formatPct(changePct)}
+            </span>
+          )}
+          {isUsingClose && lastClose && (
+            <div style={styles.closeBadge}>
+              종가 ({lastClose.tradeDate})
+            </div>
+          )}
         </div>
       </header>
 
       <div style={styles.body}>
         <section style={styles.card}>
-          <div style={styles.cardTitle}>실시간 가격 추이</div>
-          <LiveLineChart ticker={ticker} live={live?.price ?? null} />
-          <div style={styles.chartNote}>일별 OHLC 캔들은 D26 PRICE_HISTORY 적재 후 표시됩니다.</div>
+          <div style={styles.cardTitle}>
+            일봉 (최근 {candles?.length ?? 0}일)
+            {isUsingClose && <span style={styles.cardNote}> · 장 외 시간 — 종가 기준 매매 가능</span>}
+          </div>
+          <DailyCandleChart candles={candles ?? []} />
         </section>
 
-        <TradePanel ticker={ticker} currentPriceKrw={estimatedKrw} />
+        <TradePanel
+          ticker={ticker}
+          currentPriceKrw={estimatedKrw}
+          priceSourceHint={isUsingClose ? `종가 ${lastClose?.tradeDate ?? ""}` : null}
+        />
       </div>
     </div>
   );
 }
 
-function LiveLineChart({ ticker, live }: { ticker: string; live: number | null }) {
+function DailyCandleChart({ candles }: { candles: DailyCandle[] }) {
   const mode = useThemeStore((s) => s.mode);
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
-  const seriesRef = useRef<ISeriesApi<"Line"> | null>(null);
+  const seriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
 
+  // 차트 1회 생성 (테마 변경 시 재생성)
   useEffect(() => {
     if (!containerRef.current) return;
     const chart = createChart(containerRef.current, {
-      height: 280,
+      height: 320,
       autoSize: true,
       layout: {
         background: { type: ColorType.Solid, color: "transparent" },
@@ -90,24 +138,35 @@ function LiveLineChart({ ticker, live }: { ticker: string; live: number | null }
         vertLines: { color: mode === "dark" ? "#2A323D" : "#E6E8EB" },
         horzLines: { color: mode === "dark" ? "#2A323D" : "#E6E8EB" },
       },
-      timeScale: { borderVisible: false, timeVisible: true, secondsVisible: false },
+      timeScale: { borderVisible: false, timeVisible: false, secondsVisible: false },
       rightPriceScale: { borderVisible: false },
     });
-    const series = chart.addSeries(LineSeries, { color: "#4F46E5", lineWidth: 2 });
+    // 한국식: 상승 빨강, 하락 파랑
+    const series = chart.addSeries(CandlestickSeries, {
+      upColor: "#e74c3c", downColor: "#3498db",
+      borderUpColor: "#e74c3c", borderDownColor: "#3498db",
+      wickUpColor: "#e74c3c", wickDownColor: "#3498db",
+    });
     chartRef.current = chart;
     seriesRef.current = series;
     return () => { chart.remove(); chartRef.current = null; seriesRef.current = null; };
-  }, [ticker, mode]);
+  }, [mode]);
 
+  // 데이터 갱신
   useEffect(() => {
-    if (live == null || !seriesRef.current) return;
-    seriesRef.current.update({
-      time: Math.floor(Date.now() / 1000) as never,
-      value: live,
-    });
-  }, [live]);
+    if (!seriesRef.current || candles.length === 0) return;
+    const data = candles.map(c => ({
+      time: c.time as never,        // 'YYYY-MM-DD'
+      open: c.open,
+      high: c.high,
+      low: c.low,
+      close: c.close,
+    }));
+    seriesRef.current.setData(data);
+    chartRef.current?.timeScale().fitContent();
+  }, [candles]);
 
-  return <div ref={containerRef} style={{ width: "100%", height: 280 }} />;
+  return <div ref={containerRef} style={{ width: "100%", height: 320 }} />;
 }
 
 const styles: Record<string, React.CSSProperties> = {
@@ -120,13 +179,23 @@ const styles: Record<string, React.CSSProperties> = {
   },
   companyName: { fontSize: 20, fontWeight: 700 },
   tickerLine: { fontSize: 12, color: "var(--text-secondary)", marginTop: 4 },
-  priceBox: { padding: "6px 12px", borderRadius: "var(--radius-sm)" },
+  priceBox: { padding: "6px 12px", borderRadius: "var(--radius-sm)", textAlign: "right" },
   priceValue: { fontSize: 28, fontWeight: 700 },
+  closeBadge: {
+    fontSize: 11,
+    color: "var(--color-warning)",
+    marginTop: 4,
+    fontWeight: 600,
+  },
   body: { display: "grid", gridTemplateColumns: "1fr 340px", gap: 16 },
   card: {
     background: "var(--bg-panel)", border: "1px solid var(--border-subtle)",
     borderRadius: "var(--radius-lg)", padding: 20,
   },
-  cardTitle: { fontSize: 13, fontWeight: 700, color: "var(--text-secondary)", marginBottom: 12 },
-  chartNote: { fontSize: 12, color: "var(--text-tertiary)", marginTop: 8 },
+  cardTitle: {
+    fontSize: 13, fontWeight: 700, color: "var(--text-secondary)", marginBottom: 12,
+  },
+  cardNote: {
+    fontSize: 11, fontWeight: 500, color: "var(--color-warning)",
+  },
 };
