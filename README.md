@@ -340,9 +340,14 @@ ssh ... 'cd mockvibe && bash deploy/scripts/deploy.sh'
 - 📅 [DAILY_PLAN.md](DAILY_PLAN.md) — 10주 50일 작업 계획
 - 🏛️ [docs/decisions/](docs/decisions/) — Architecture Decision Records
 - 📊 [docs/perf/D48-load-test.md](docs/perf/D48-load-test.md) — 부하 테스트 결과
-- 🩺 [docs/operations/d49-deployment-postmortem.md](docs/operations/d49-deployment-postmortem.md) — D49 운영 배포 중 잡은 이슈 8건 (oraclepki · Flyway baseline · Tomcat strict · springdoc 호환성 등)
+- 🩺 [docs/operations/d49-deployment-postmortem.md](docs/operations/d49-deployment-postmortem.md) — D49 운영 배포 중 잡은 11건 이슈 (oraclepki · Flyway baseline · Tomcat strict · nginx HTTP/2-WS 충돌 등)
+- 🎬 [docs/operations/d50-demo-script.md](docs/operations/d50-demo-script.md) — 45초 데모 영상 스크립트
 - 🏛️ [ADR-001 데이터 모델 V1 설계](docs/decisions/ADR-001-data-model.md)
 - 🏛️ [ADR-002 배포 토폴로지](docs/decisions/ADR-002-deployment-topology.md)
+- 🏛️ [ADR-003 운영 회복력 — D49 11건 → 영구 정책](docs/decisions/ADR-003-operational-resilience.md)
+- 🏛️ [ADR-004 동시성 — 비관/낙관 락 하이브리드](docs/decisions/ADR-004-concurrency-locking.md)
+- 🏛️ [ADR-005 Circuit Breaker — Resilience4j 5 인스턴스](docs/decisions/ADR-005-circuit-breaker.md)
+- 🏛️ [ADR-006 Provider 추상화 — KIS·Finnhub·Mock](docs/decisions/ADR-006-provider-abstraction.md)
 
 ---
 
