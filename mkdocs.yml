@@ -1,0 +1,114 @@
+site_name: MockVibe — fintech-simulator
+site_description: 한국·미국 주식 통합 실시간 모의투자 + AI 매매 코치 + 백테스트 + 리스크 대시보드
+site_url: https://dinf7605.github.io/mockvibe/
+repo_url: https://github.com/dinf7605/mockvibe
+repo_name: dinf7605/mockvibe
+edit_uri: edit/main/docs/
+copyright: MIT License — Educational / Portfolio purposes
+
+docs_dir: docs
+
+theme:
+  name: material
+  language: ko
+  palette:
+    # 라이트
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: indigo
+      accent: red
+      toggle:
+        icon: material/brightness-7
+        name: 다크 모드로
+    # 다크
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: indigo
+      accent: red
+      toggle:
+        icon: material/brightness-4
+        name: 라이트 모드로
+  features:
+    - navigation.tabs
+    - navigation.tabs.sticky
+    - navigation.sections
+    - navigation.top
+    - navigation.footer
+    - navigation.indexes
+    - search.suggest
+    - search.highlight
+    - search.share
+    - content.code.copy
+    - content.code.annotate
+    - content.tabs.link
+    - toc.follow
+  font:
+    text: Noto Sans KR
+    code: JetBrains Mono
+  icon:
+    repo: fontawesome/brands/github
+
+markdown_extensions:
+  # 코드/하이라이트
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.tabbed:
+      alternate_style: true
+  # 가독성
+  - admonition
+  - pymdownx.details
+  - pymdownx.tasklist:
+      custom_checkbox: true
+  - attr_list
+  - md_in_html
+  - tables
+  - footnotes
+  # 자동 anchor
+  - toc:
+      permalink: true
+      toc_depth: 3
+
+plugins:
+  - search:
+      lang:
+        - ko
+        - en
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/dinf7605/mockvibe
+    - icon: fontawesome/solid/globe
+      link: https://mockvibe-hazel.vercel.app
+      name: Live App
+  status:
+    new: 최근 추가
+    deprecated: 폐기 예정
+
+nav:
+  - 홈: index.md
+  - 의사결정 (ADR):
+    - 개요: decisions/index.md
+    - 001 데이터 모델 V1: decisions/ADR-001-data-model.md
+    - 002 배포 토폴로지: decisions/ADR-002-deployment-topology.md
+    - 003 운영 회복력 (D49 11건): decisions/ADR-003-operational-resilience.md
+    - 004 동시성 락 하이브리드: decisions/ADR-004-concurrency-locking.md
+    - 005 Circuit Breaker: decisions/ADR-005-circuit-breaker.md
+    - 006 Provider 추상화: decisions/ADR-006-provider-abstraction.md
+    - 007 WebSocket 재연결: decisions/ADR-007-websocket-reconnect.md
+    - 008 SSH 접근 정책: decisions/ADR-008-ssh-access-policy.md
+    - 009 관측성: decisions/ADR-009-observability.md
+  - 운영:
+    - D49 배포 Postmortem (11건): operations/d49-deployment-postmortem.md
+    - D50 데모 영상 스크립트: operations/d50-demo-script.md
+  - 성능:
+    - D48 부하 테스트: perf/D48-load-test.md

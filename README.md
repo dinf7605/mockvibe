@@ -16,7 +16,8 @@
 🌐 **Live**:
 [App ▸ mockvibe-hazel.vercel.app](https://mockvibe-hazel.vercel.app) &nbsp;|&nbsp;
 [API ▸ mockvibe.duckdns.org](https://mockvibe.duckdns.org/actuator/health) &nbsp;|&nbsp;
-[Swagger UI](https://mockvibe.duckdns.org/swagger-ui/index.html)
+[Swagger UI](https://mockvibe.duckdns.org/swagger-ui/index.html) &nbsp;|&nbsp;
+[📖 문서 사이트](https://dinf7605.github.io/mockvibe/)
 
 <!-- TODO(D50): docs/assets/demo.gif 추가 후 아래 한 줄 주석 해제 -->
 <!-- ![Demo](docs/assets/demo.gif) -->
