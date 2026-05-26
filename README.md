@@ -348,6 +348,9 @@ ssh ... 'cd mockvibe && bash deploy/scripts/deploy.sh'
 - 🏛️ [ADR-004 동시성 — 비관/낙관 락 하이브리드](docs/decisions/ADR-004-concurrency-locking.md)
 - 🏛️ [ADR-005 Circuit Breaker — Resilience4j 5 인스턴스](docs/decisions/ADR-005-circuit-breaker.md)
 - 🏛️ [ADR-006 Provider 추상화 — KIS·Finnhub·Mock](docs/decisions/ADR-006-provider-abstraction.md)
+- 🏛️ [ADR-007 WebSocket 재연결 — Exponential Backoff + CB 협력](docs/decisions/ADR-007-websocket-reconnect.md)
+- 🏛️ [ADR-008 SSH 접근 정책 — 0.0.0.0/0 + 키 인증, 향후 SSM 전환](docs/decisions/ADR-008-ssh-access-policy.md)
+- 🏛️ [ADR-009 관측성 — Micrometer + Prometheus + 자체 도메인 지표](docs/decisions/ADR-009-observability.md)
 
 ---
 
