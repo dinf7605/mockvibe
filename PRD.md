@@ -2,11 +2,13 @@
 
 | 항목 | 내용 |
 |---|---|
-| **문서 버전** | v2.0 (Final) |
-| **작성일** | 2026-05-20 |
+| **문서 버전** | v2.1 (D49 운영 가동 반영) |
+| **작성일** | 2026-05-20 (v2.0) / 2026-05-26 (v2.1 갱신) |
 | **프로젝트 코드명** | `fintech-simulator` |
-| **개발 기간** | 10주 (Phase 1~7) |
-| **상태** | 확정 |
+| **개발 기간** | 10주 (Phase 1~7, D01~D50) |
+| **상태** | **운영 가동 중** — [App](https://mockvibe-hazel.vercel.app) · [API](https://mockvibe.duckdns.org/actuator/health) · [Postmortem](docs/operations/d49-deployment-postmortem.md) |
+
+> **v2.1 변경**: D49 운영 배포 완료. 본 PRD의 In-Scope 전 항목이 외부 도메인에서 동작 중. 11건의 운영 이슈와 해결은 별도 [postmortem 문서](docs/operations/d49-deployment-postmortem.md). 아키텍처 결정 9건은 [docs/decisions/](docs/decisions/).
 
 ---
 

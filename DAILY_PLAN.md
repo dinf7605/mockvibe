@@ -131,8 +131,23 @@
 | **D46** | 프론트 - 관리자 (2) | 거래/시스템 대시보드(헬스 신호등)/AI 비용 차트/공지/감사 로그(diff 뷰) 화면 |
 | **D47** | 관측성 + Docker Compose | Actuator + Micrometer + Prometheus 엔드포인트, 로그 MDC(requestId), Docker Compose 풀스택 한 줄 기동 |
 | **D48** | 부하 테스트 + 튜닝 | k6 시나리오: 동시 50명 매매·시세 구독, p95 응답·시세 전파 측정, JVM/커넥션풀 튜닝 |
-| **D49** | AWS 배포 | EC2 t3.micro (Nginx + Let's Encrypt + systemd + Swap), Oracle ADB Wallet 연결, Vercel 배포 + CORS 화이트리스트 |
-| **D50** | 문서화 + 마무리 | README, ADR 13개(`docs/DECISIONS.md`), 데모 시나리오(`DEMO.md`), 3분 영상, 화면 캡처, 부하 결과 그래프 |
+| **D49** ✅ | AWS 배포 + 자동화 | EC2 t3.micro + Nginx + Let's Encrypt + Swap 2GB + Oracle ADB Wallet mTLS + Vercel 프론트 + GitHub Actions 자동 배포 (`git push` 한 줄). **11건 운영 이슈 진단·해결** ([postmortem](docs/operations/d49-deployment-postmortem.md)) |
+| **D50** 🟡 | 문서화 + 마무리 | README + 운영 URL/배지 + mermaid 다이어그램 4종 ✅ / ADR 9건 ✅ (목표 13) / Postmortem ✅ / 데모 스크립트 ✅ / 데모 GIF 영상 ⏳ |
+
+---
+
+---
+
+## 🚀 D50 이후 후속 작업 후보 (Optional / Phase 8+)
+
+| 영역 | 작업 | ADR |
+|---|---|---|
+| 보안 | SSH 22 → AWS SSM Session Manager + GitHub OIDC | [ADR-008](docs/decisions/ADR-008-ssh-access-policy.md) Phase 2 |
+| 관측성 | Prometheus → Grafana Cloud free tier + Slack 알림 | [ADR-009](docs/decisions/ADR-009-observability.md) Phase 2 |
+| 분산 추적 | OpenTelemetry + Tempo (KIS → STOMP → 클라이언트 전 구간) | ADR-012 (예정) |
+| 알림 | Web Push (지정가 체결 / 리스크 임계 돌파) | ADR-013 (예정) |
+| 도메인 ADR | JWT/RT Rotation · STOMP 시세 파이프 · AI 캐시 · 관리자 감사 AOP | ADR-010~011 (예정) |
+| 트래픽 증대 시 | WebSocket을 `ws.<domain>` 서브도메인으로 분리하고 메인은 HTTP/2 복귀 | [ADR-003 §3](docs/decisions/ADR-003-operational-resilience.md) 메모 |
 
 ---
 
