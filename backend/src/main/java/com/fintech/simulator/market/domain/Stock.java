@@ -54,4 +54,14 @@ public class Stock {
         this.isActive = isActive() ? 0 : 1;
         this.updatedAt = OffsetDateTime.now();
     }
+
+    /**
+     * STOCKS.current_price 갱신.
+     * - PriceHistorySeeder 가 시드 후 마지막 close 로 동기화할 때 사용
+     * - 향후 Provider 가 실시간 가격을 STOCKS 에 sync 할 때도 사용 가능
+     */
+    public void setCurrentPrice(BigDecimal price) {
+        this.currentPrice = price;
+        this.updatedAt = OffsetDateTime.now();
+    }
 }
