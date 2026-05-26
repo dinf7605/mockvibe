@@ -18,6 +18,11 @@
 [API ▸ mockvibe.duckdns.org](https://mockvibe.duckdns.org/actuator/health) &nbsp;|&nbsp;
 [Swagger UI](https://mockvibe.duckdns.org/swagger-ui/index.html)
 
+<!-- TODO(D50): docs/assets/demo.gif 추가 후 아래 한 줄 주석 해제 -->
+<!-- ![Demo](docs/assets/demo.gif) -->
+<!-- 데모 녹화 가이드: docs/operations/d50-demo-script.md -->
+
+
 ---
 
 ## 🎯 한눈에 보기
@@ -111,10 +116,47 @@ flowchart LR
 - **StepUp 토큰** (관리자 위험 작업, Redis 5분 1회용)
 
 ### 매매 / 동시성
+
 - 시장가 매수/매도 — Wallet **비관적 락** + Holdings **낙관적 락 하이브리드**
 - **10병렬 동시 매수 테스트** — 잔고 정합성 검증 통과
 - 지정가 주문 — Event-driven, per-ticker `ReentrantLock`, 만료 배치(cron)
 - 거래 내역 + 예약 주문 관리
+
+<details>
+<summary>📊 시장가 매수 시퀀스 — 락 획득 순서로 deadlock 불가능 (ADR-004)</summary>
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor U as User
+    participant API as TradingController
+    participant T as TradingService<br/>@Transactional
+    participant W as WalletRepo
+    participant H as HoldingRepo
+    participant O as OrderRepo
+    participant P as PriceCache
+
+    U->>API: POST /trades/buy<br/>{ticker, qty}
+    API->>T: executeMarketBuy()
+    Note over T: 트랜잭션 시작
+    T->>W: findByUserIdForUpdate(userId)<br/>🔒 PESSIMISTIC_WRITE
+    W-->>T: Wallet (row locked)
+    T->>H: findByUserAndTicker()
+    H-->>T: Holding (version=N)
+    T->>P: getPrice(ticker)
+    P-->>T: BigDecimal price
+    T->>T: 잔고 검증 (cash ≥ price×qty)
+    T->>W: wallet.subtractCash()
+    T->>H: holding.addQuantity() ⚡ @Version → N+1
+    Note over H: 다른 TX가 먼저 commit하면<br/>OptimisticLockException → 재시도
+    T->>O: save(Order.of(...))<br/>INSERT-only
+    Note over T: 트랜잭션 commit<br/>🔓 Wallet row unlock
+    T-->>API: OrderResult
+    API-->>U: 200 OK
+```
+
+**락 순서는 항상 Wallet → Holdings → Orders** — 모든 매매 경로에서 동일 → 락 그래프에 cycle 없음 → **deadlock 불가능**.
+</details>
 
 ### 시세 / 환율
 - STOMP `/topic/price/{ticker}` 릴레이 + heartbeat
@@ -202,7 +244,8 @@ mockvibe/
 │   └── src/pages/              # 12 page + admin/7
 ├── docker/                     # Oracle XE + Redis compose
 ├── perf/                       # k6 시나리오
-├── docs/decisions/             # ADR (현재 ADR-001, 12개 추가 예정)
+├── docs/decisions/             # ADR (9건. 추가 예정)
+├── docs/operations/            # D49 postmortem + D50 데모 스크립트
 ├── PRD.md                      # 요구사항 v2.0
 └── DAILY_PLAN.md               # 50일 작업 계획
 ```
@@ -315,17 +358,65 @@ ssh ... 'cd mockvibe && bash deploy/scripts/issue-cert.sh'
 ssh ... 'cd mockvibe && bash deploy/scripts/deploy.sh'
 ```
 
-### 일상 배포 흐름
-1. `main` 브랜치에 푸시 → GitHub Actions가 자동으로
-   - `ci.yml`: gradle test + npm build
-   - `docker-publish.yml`: `ghcr.io/dinf7605/mockvibe-backend:{sha,latest}` 푸시
-2. EC2에서 `bash deploy/scripts/deploy.sh` → 최신 이미지 pull + up -d + 헬스체크 폴링
-3. 문제 시 `bash deploy/scripts/rollback.sh <previous_sha>`
+### 자동 배포 흐름 — `git push` 한 줄
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Dev as Developer
+    participant GH as GitHub main
+    participant CI as ci.yml<br/>(gradle test + vite build)
+    participant DP as docker-publish.yml<br/>(GHCR push)
+    participant DE as deploy-ec2.yml<br/>(SSH + git pull)
+    participant EC2 as EC2 mockvibe-app
+    participant N as Nginx
+
+    Dev->>GH: git push main
+    GH->>CI: workflow trigger
+    CI-->>GH: ✅ tests passed
+    GH->>DP: workflow trigger
+    DP->>DP: backend image build (Buildx + cache)
+    DP->>DP: ghcr.io/.../mockvibe-backend:{sha,latest}
+    DP-->>GH: ✅ image published
+    GH->>DE: workflow_run on DP success
+    DE->>EC2: ssh + git reset --hard origin/main
+    DE->>EC2: bash deploy/scripts/deploy.sh
+    EC2->>EC2: docker pull GHCR
+    EC2->>EC2: compose up -d (변경된 서비스만)
+    EC2->>N: nginx -t && nginx -s reload
+    EC2->>EC2: 헬스체크 폴링 (5초×30)
+    EC2-->>DE: ✅ HEALTHY (X회차)
+    DE-->>GH: ✅ deploy complete
+    Note over Dev,GH: 평균 ~3분
+```
+
+문제 시: `bash deploy/scripts/rollback.sh <previous_sha>` (EC2 SSH).
 
 ### 프론트엔드 (Vercel)
 - GitHub 저장소 연결 → `frontend/` 디렉토리 자동 감지
-- 환경변수: `VITE_API_BASE_URL=https://<APP_DOMAIN>`, `VITE_WS_URL=wss://<APP_DOMAIN>/ws`
-- `vercel.json`이 `/api/*` 요청을 백엔드로 리라이트, SPA fallback 포함
+- 환경변수: `VITE_API_BASE_URL=https://mockvibe.duckdns.org` (WebSocket URL은 코드에서 자동 파생)
+- `vercel.json` SPA fallback (axios가 baseURL 직접 호출)
+
+### 시세 흐름 — 외부 WebSocket → STOMP → 클라이언트
+
+```mermaid
+flowchart LR
+    KIS[KIS WebSocket<br/>국내 시세] -->|tick| Cache[PriceCache<br/>in-memory]
+    FH[Finnhub WebSocket<br/>미국 시세] -->|tick| Cache
+    Mock[Mock RandomWalk<br/>fallback] -->|tick| Cache
+    Cache --> BC[PriceBroadcaster<br/>Micrometer lag/late]
+    BC -->|topic per ticker| BR[STOMP Broker /ws]
+    BR -->|fan-out| C1[Client 1]
+    BR -->|fan-out| C2[Client 2]
+    BR -->|fan-out| Cn[Client N]
+
+    classDef ext fill:#e74c3c,color:#fff
+    classDef mock fill:#7f8c8d,color:#fff
+    class KIS,FH ext
+    class Mock mock
+```
+
+→ 외부 Provider 하나가 죽어도 (CB Open) Mock 으로 자동 대체. **클라이언트는 어떤 출처인지 모름** — Provider 추상화 ([ADR-006](docs/decisions/ADR-006-provider-abstraction.md)).
 
 ### 무료 도메인 (DuckDNS)
 1. [duckdns.org](https://www.duckdns.org/) 로그인 → 서브도메인 생성 (예: `mockvibe`)
