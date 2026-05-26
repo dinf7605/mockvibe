@@ -53,4 +53,16 @@ public class PriceHistory {
     public static PriceHistory of(String ticker, LocalDate date, BigDecimal o, BigDecimal h, BigDecimal l, BigDecimal c, long vol) {
         return new PriceHistory(ticker, date, o, h, l, c, vol);
     }
+
+    /**
+     * 외부 API 일봉 재fetch 시 동일 날짜의 OHLCV 를 덮어쓰기 위한 UPSERT update.
+     * (대부분의 KIS 응답은 동일 날짜 값이 stable 하지만, 장중 데이터 정정 가능성 대비)
+     */
+    public void update(BigDecimal o, BigDecimal h, BigDecimal l, BigDecimal c, long vol) {
+        this.open = o;
+        this.high = h;
+        this.low = l;
+        this.close = c;
+        this.volume = vol;
+    }
 }

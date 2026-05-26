@@ -24,4 +24,10 @@ public interface PriceHistoryRepository extends JpaRepository<PriceHistory, Long
      * 종목별 최근 N일 일봉 (오래된 → 최신 순으로 차트에 그대로 사용 가능).
      */
     List<PriceHistory> findTop365ByTickerOrderByTradeDateDesc(String ticker);
+
+    /**
+     * UPSERT 용도: 동일 (ticker, trade_date) row 존재 여부 검사.
+     * V4 UNIQUE 제약 (uk_price_history_t_d) 충돌 회피.
+     */
+    Optional<PriceHistory> findByTickerAndTradeDate(String ticker, LocalDate tradeDate);
 }
