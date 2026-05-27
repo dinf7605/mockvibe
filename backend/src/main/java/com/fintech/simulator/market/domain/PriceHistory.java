@@ -65,4 +65,20 @@ public class PriceHistory {
         this.close = c;
         this.volume = vol;
     }
+
+    /**
+     * 장중 폴링으로 받은 현재가를 오늘 candle 에 누적.
+     * high = max, low = min, close = 최신가. open 은 첫 기록값 유지.
+     */
+    public void applyIntraday(BigDecimal price) {
+        if (price == null || price.signum() <= 0) return;
+        if (high == null || price.compareTo(high) > 0) this.high = price;
+        if (low == null  || price.compareTo(low) < 0)  this.low = price;
+        this.close = price;
+    }
+
+    /** 오늘 첫 기록 시 OHLC 를 모두 현재가로 초기화하는 팩토리 */
+    public static PriceHistory intradayOpen(String ticker, LocalDate date, BigDecimal price) {
+        return new PriceHistory(ticker, date, price, price, price, price, 0L);
+    }
 }

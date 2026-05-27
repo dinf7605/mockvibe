@@ -3,7 +3,6 @@ package com.fintech.simulator.market.provider.kis;
 import com.fintech.simulator.market.provider.MarketDataProvider;
 import com.fintech.simulator.market.provider.Quote;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
@@ -16,7 +15,6 @@ import java.util.Set;
  * - supports: KRX(한국) 종목 (6자리 숫자 ticker)
  * - getQuote: D13까지는 빈 Optional (PriceCache로부터 받아간 값을 다른 Provider가 못 채울 때 폴백)
  */
-@Slf4j
 @Component
 @RequiredArgsConstructor
 @ConditionalOnProperty(name = "app.external.kis.app-key")
@@ -24,7 +22,7 @@ public class KisMarketDataProvider implements MarketDataProvider {
 
     private static final Set<String> SUPPORTED_MARKETS = Set.of("KRX");
 
-    private final KisRestClient restClient;
+    private final KisQuoteClient quoteClient;
 
     @Override
     public String name() {
@@ -39,8 +37,6 @@ public class KisMarketDataProvider implements MarketDataProvider {
 
     @Override
     public Optional<Quote> getQuote(String ticker) {
-        // D13에서 KIS REST `/uapi/domestic-stock/v1/quotations/inquire-price` 호출로 구현
-        log.debug("KIS REST quote stub for {} (markets={})", ticker, SUPPORTED_MARKETS);
-        return Optional.empty();
+        return quoteClient.quote(ticker);
     }
 }
