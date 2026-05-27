@@ -13,7 +13,6 @@ import org.springframework.core.annotation.Order;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -128,8 +127,10 @@ public class KisDailyCandleFetcher implements ApplicationRunner {
 
     /**
      * UNIQUE (ticker, trade_date) 충돌 시 update, 아니면 insert.
+     * 양쪽 분기 모두 save() 명시 — 이 메서드는 self-invocation(run→fetchAll→fetchForTicker)
+     * 으로 호출돼 트랜잭션 프록시가 우회되므로 ambient 트랜잭션이 없다. update 분기가
+     * detached 엔티티의 dirty checking 에만 의존하면 변경이 유실(no-op)된다.
      */
-    @Transactional
     public int upsertItems(String ticker, List<KisDailyChartResponse.KisDailyCandleItem> items) {
         int count = 0;
         for (KisDailyChartResponse.KisDailyCandleItem item : items) {
@@ -143,7 +144,10 @@ public class KisDailyCandleFetcher implements ApplicationRunner {
 
                 priceHistoryRepository.findByTickerAndTradeDate(ticker, date)
                         .ifPresentOrElse(
-                                existing -> existing.update(o, h, l, c, vol),
+                                existing -> {
+                                    existing.update(o, h, l, c, vol);
+                                    priceHistoryRepository.save(existing);
+                                },
                                 () -> priceHistoryRepository.save(
                                         PriceHistory.of(ticker, date, o, h, l, c, vol))
                         );
