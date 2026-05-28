@@ -62,7 +62,8 @@ class FinnhubTest {
     @Test
     @DisplayName("Provider: 영문 1~5자 ticker만 supports")
     void provider_supports() {
-        FinnhubMarketDataProvider p = new FinnhubMarketDataProvider();
+        // supports() 는 quote client 를 쓰지 않으므로 null 주입 (Step 2·3 에서 생성자 시그니처 변경)
+        FinnhubMarketDataProvider p = new FinnhubMarketDataProvider(null);
         assertThat(p.supports("AAPL")).isTrue();
         assertThat(p.supports("NVDA")).isTrue();
         assertThat(p.supports("005930")).isFalse();
