@@ -23,7 +23,10 @@ import org.springframework.security.config.annotation.method.configuration.Enabl
 })
 @EnableMethodSecurity     // @PreAuthorize / @PostAuthorize 활성화 (메서드 단위 깊이 방어)
 @EnableScheduling
-@EnableAsync
+// proxyTargetClass=true: ApplicationRunner 인터페이스를 구현한 @Async 빈(예: KisDailyCandleFetcher,
+// UsDailyCandleFetcher)도 CGLIB 프록시로 강제해야 @Scheduled 메서드가 노출된다.
+// (JDK 프록시면 dailyRefresh 같은 비-인터페이스 메서드를 못 찾아 부팅 실패)
+@EnableAsync(proxyTargetClass = true)
 @EnableConfigurationProperties({
 		AuthProperties.class,
 		CorsProperties.class,
