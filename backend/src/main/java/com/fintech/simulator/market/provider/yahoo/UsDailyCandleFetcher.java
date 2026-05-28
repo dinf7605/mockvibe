@@ -1,4 +1,4 @@
-package com.fintech.simulator.market.provider.stooq;
+package com.fintech.simulator.market.provider.yahoo;
 
 import com.fintech.simulator.market.domain.PriceHistory;
 import com.fintech.simulator.market.domain.Stock;
@@ -18,12 +18,12 @@ import java.time.LocalDate;
 import java.util.List;
 
 /**
- * 미국 종목 일봉 실데이터 수집기 (Stooq). KIS 일봉 수집기(KRX)의 미국판.
+ * 미국 종목 일봉 실데이터 수집기 (Yahoo Finance). KIS 일봉 수집기(KRX)의 미국판.
  *
  * <h3>왜 필요한가</h3>
  * 기존에 미국 종목 일봉은 {@code PriceHistorySeeder} 의 랜덤워크 mock 만 있었다
  * (Finnhub 무료가 일봉 미지원). 차트·리스크·백테스트가 가짜 데이터 위에서 돈다.
- * Stooq 로 실제 OHLCV 를 받아 덮어쓴다.
+ * Yahoo {@code /v8/finance/chart/} 로 실제 OHLCV 를 받아 덮어쓴다.
  *
  * <h3>스케줄</h3>
  * <ol>
@@ -46,7 +46,7 @@ public class UsDailyCandleFetcher implements ApplicationRunner {
 
     private final StockRepository stockRepository;
     private final PriceHistoryRepository priceHistoryRepository;
-    private final StooqDailyCandleClient client;
+    private final YahooDailyCandleClient client;
 
     @Override
     @Async
