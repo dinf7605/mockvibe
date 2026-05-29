@@ -6,6 +6,7 @@ import { logout as apiLogout } from "../api/auth";
 const NAV = [
   { to: "/dashboard", label: "대시보드", end: true },
   { to: "/search", label: "종목 검색" },
+  { to: "/watchlist", label: "관심종목" },
   { to: "/history", label: "거래 내역" },
   { to: "/orders", label: "예약 주문" },
   { to: "/backtest", label: "백테스트" },

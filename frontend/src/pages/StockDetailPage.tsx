@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   createChart,
   ColorType,
@@ -14,6 +14,7 @@ import {
   getLastClose,
   type DailyCandle,
 } from "../api/stocks";
+import { isWatching, addWatchlist, removeWatchlist } from "../api/watchlist";
 import { useStompPrice } from "../hooks/useStompPrice";
 import { TradePanel } from "../components/TradePanel";
 import { formatKrw, formatPct, trendClass } from "../lib/format";
@@ -42,6 +43,22 @@ export default function StockDetailPage() {
     enabled: !!ticker,
     staleTime: 60_000,
     retry: false,
+  });
+
+  // 관심종목 여부 + 토글
+  const qc = useQueryClient();
+  const { data: watching } = useQuery({
+    queryKey: ["watching", ticker],
+    queryFn: () => isWatching(ticker!),
+    enabled: !!ticker,
+  });
+  const toggleWatch = useMutation({
+    mutationFn: () =>
+      watching ? removeWatchlist(ticker!) : addWatchlist(ticker!),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["watching", ticker] });
+      qc.invalidateQueries({ queryKey: ["watchlist"] });
+    },
   });
 
   const live = useStompPrice(ticker);
@@ -79,7 +96,16 @@ export default function StockDetailPage() {
     <div style={styles.grid}>
       <header style={styles.header}>
         <div>
-          <div style={styles.companyName}>{stock.companyName}</div>
+          <div style={styles.companyNameRow}>
+            <span style={styles.companyName}>{stock.companyName}</span>
+            <button
+              onClick={() => toggleWatch.mutate()}
+              disabled={toggleWatch.isPending}
+              style={{ ...styles.starBtn, color: watching ? "var(--color-warning)" : "var(--text-tertiary)" }}
+              aria-label={watching ? "관심종목 제거" : "관심종목 추가"}
+              title={watching ? "관심종목에서 제거" : "관심종목에 추가"}
+            >{watching ? "★" : "☆"}</button>
+          </div>
           <div style={styles.tickerLine}>{stock.ticker} · {stock.market} · {stock.sector ?? "-"}</div>
         </div>
         <div key={flashKey} className="price-flash tabular" data-flash={flashDir} style={styles.priceBox}>
@@ -177,7 +203,12 @@ const styles: Record<string, React.CSSProperties> = {
     background: "var(--bg-panel)", border: "1px solid var(--border-subtle)",
     borderRadius: "var(--radius-lg)",
   },
+  companyNameRow: { display: "flex", alignItems: "center", gap: 8 },
   companyName: { fontSize: 20, fontWeight: 700 },
+  starBtn: {
+    background: "transparent", border: "none", cursor: "pointer",
+    fontSize: 22, lineHeight: 1, padding: 0,
+  },
   tickerLine: { fontSize: 12, color: "var(--text-secondary)", marginTop: 4 },
   priceBox: { padding: "6px 12px", borderRadius: "var(--radius-sm)", textAlign: "right" },
   priceValue: { fontSize: 28, fontWeight: 700 },
