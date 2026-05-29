@@ -76,13 +76,30 @@ public class UsDailyCandleFetcher implements ApplicationRunner {
         for (Stock s : usStocks) {
             try {
                 List<DailyCandle> candles = client.fetch(s.getTicker(), from, to);
-                total += upsert(s.getTicker(), candles);
+                int saved = upsert(s.getTicker(), candles);
+                if (saved > 0) syncCurrentPrice(s);
+                total += saved;
             } catch (Exception e) {
                 log.warn("US daily fetch failed for {}: {}", s.getTicker(), e.toString());
                 // 한 종목 실패해도 계속 진행
             }
         }
         return total;
+    }
+
+    /**
+     * STOCKS.current_price 를 가장 최근 PRICE_HISTORY close 로 동기화.
+     *
+     * <p>{@code Stock.current_price} 는 검색·상세·포트폴리오 표시(캐시 miss 시)에 직접 노출되는
+     * denormalized 컬럼이다. PRICE_HISTORY 만 UPSERT 하면 차트만 실데이터로 바뀌고
+     * "현재가" 는 PriceHistorySeeder 가 부팅 1회 박아둔 mock seed 의 마지막 close 에 고정된다.
+     */
+    private void syncCurrentPrice(Stock stock) {
+        priceHistoryRepository.findTopByTickerOrderByTradeDateDesc(stock.getTicker())
+                .ifPresent(latest -> {
+                    stock.setCurrentPrice(latest.getClose());
+                    stockRepository.save(stock);
+                });
     }
 
     /**
