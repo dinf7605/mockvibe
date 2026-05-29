@@ -15,6 +15,7 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.List;
 
 /**
@@ -42,6 +43,9 @@ import java.util.List;
 @Service
 @RequiredArgsConstructor
 public class MarketPollingScheduler {
+
+    private static final ZoneId KST = ZoneId.of("Asia/Seoul");
+    private static final ZoneId ET  = ZoneId.of("America/New_York");
 
     private final StockRepository stockRepository;
     private final PriceHistoryRepository priceHistoryRepository;
@@ -82,26 +86,40 @@ public class MarketPollingScheduler {
                 .map(q -> {
                     priceCache.put(q);
                     eventPublisher.publishEvent(new PriceUpdatedEvent(q));  // → STOMP
-                    recordIntraday(q);
+                    recordIntraday(q, tradeDateOf(stock));
                     return true;
                 })
                 .orElse(false);
     }
 
     /**
-     * 오늘 PRICE_HISTORY candle 에 현재가 누적 (high/low/close).
+     * 종목 시장의 "거래일" 을 그 시장 로컬 타임존 기준으로 결정한다.
+     *
+     * <p>JVM 기본 타임존이 KST 라 {@code LocalDate.now()} 는 항상 KST 날짜를 준다.
+     * 그런데 미국 장(09:30~16:00 ET = 22:30~05:00 KST)은 하나의 ET 세션이 KST 로는
+     * 두 날짜에 걸친다. KST 날짜로 기록하면 세션 후반(02:00~05:00 KST)의 intraday 가
+     * 다음 날 KST 날짜로 저장돼, ET 날짜를 쓰는 Yahoo 일봉과 어긋나며 유령 캔들이 생긴다.
+     * → 시장별로 올바른 타임존의 LocalDate 를 쓴다.
+     */
+    private LocalDate tradeDateOf(Stock stock) {
+        return "KRX".equals(stock.getMarket())
+                ? LocalDate.now(KST)
+                : LocalDate.now(ET);
+    }
+
+    /**
+     * 거래일 PRICE_HISTORY candle 에 현재가 누적 (high/low/close).
      * self-invocation 이라 @Transactional 대신 save() 를 명시해 merge 저장.
      */
-    private void recordIntraday(Quote q) {
-        LocalDate today = LocalDate.now();
-        priceHistoryRepository.findByTickerAndTradeDate(q.ticker(), today)
+    private void recordIntraday(Quote q, LocalDate tradeDate) {
+        priceHistoryRepository.findByTickerAndTradeDate(q.ticker(), tradeDate)
                 .ifPresentOrElse(
                         existing -> {
                             existing.applyIntraday(q.price());
                             priceHistoryRepository.save(existing);
                         },
                         () -> priceHistoryRepository.save(
-                                PriceHistory.intradayOpen(q.ticker(), today, q.price()))
+                                PriceHistory.intradayOpen(q.ticker(), tradeDate, q.price()))
                 );
     }
 }
