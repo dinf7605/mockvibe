@@ -63,12 +63,12 @@ export default function AlertsPage() {
                 </td>
                 <td style={styles.tdNum}>{fmtPrice(a.triggeredPrice)}</td>
                 <td style={styles.tdNum}>
-                  {a.status === "ACTIVE" && (
+                  {a.status !== "CANCELLED" && (
                     <button
                       onClick={() => cancel.mutate(a.alertId)}
                       disabled={cancel.isPending}
                       style={styles.cancelBtn}
-                    >취소</button>
+                    >{a.status === "TRIGGERED" ? "확인" : "취소"}</button>
                   )}
                 </td>
               </tr>
