@@ -15,6 +15,7 @@ import {
   type DailyCandle,
 } from "../api/stocks";
 import { isWatching, addWatchlist, removeWatchlist } from "../api/watchlist";
+import { createAlert, type AlertDirection } from "../api/alerts";
 import { useStompPrice } from "../hooks/useStompPrice";
 import { TradePanel } from "../components/TradePanel";
 import { formatKrw, formatPct, trendClass } from "../lib/format";
@@ -134,15 +135,106 @@ export default function StockDetailPage() {
           <DailyCandleChart candles={candles ?? []} />
         </section>
 
-        <TradePanel
-          ticker={ticker}
-          currentPriceKrw={estimatedKrw}
-          priceSourceHint={isUsingClose ? `종가 ${lastClose?.tradeDate ?? ""}` : null}
-        />
+        <div style={styles.sideCol}>
+          <TradePanel
+            ticker={ticker}
+            currentPriceKrw={estimatedKrw}
+            priceSourceHint={isUsingClose ? `종가 ${lastClose?.tradeDate ?? ""}` : null}
+          />
+          <AlertCard ticker={ticker} currency={stock.currency} defaultPrice={displayPrice} />
+        </div>
       </div>
     </div>
   );
 }
+
+function AlertCard({
+  ticker,
+  currency,
+  defaultPrice,
+}: {
+  ticker: string;
+  currency: string;
+  defaultPrice: number;
+}) {
+  const qc = useQueryClient();
+  const [direction, setDirection] = useState<AlertDirection>("ABOVE");
+  const [price, setPrice] = useState<string>(defaultPrice ? String(defaultPrice) : "");
+
+  const create = useMutation({
+    mutationFn: () =>
+      createAlert({ ticker, direction, targetPrice: Number(price) }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["alerts"] });
+      qc.invalidateQueries({ queryKey: ["alerts", "triggered-count"] });
+    },
+  });
+
+  const valid = price !== "" && Number(price) > 0;
+  const unit = currency === "USD" ? "$" : "₩";
+
+  return (
+    <section style={alertStyles.card}>
+      <div style={alertStyles.title}>가격 알림</div>
+      <div style={alertStyles.row}>
+        <button
+          onClick={() => setDirection("ABOVE")}
+          style={{ ...alertStyles.dirBtn, ...(direction === "ABOVE" ? alertStyles.dirActive : {}) }}
+        >이상 ▲</button>
+        <button
+          onClick={() => setDirection("BELOW")}
+          style={{ ...alertStyles.dirBtn, ...(direction === "BELOW" ? alertStyles.dirActive : {}) }}
+        >이하 ▼</button>
+      </div>
+      <label style={alertStyles.label}>목표가 ({unit})</label>
+      <input
+        type="number"
+        value={price}
+        min={0}
+        step="any"
+        onChange={(e) => setPrice(e.target.value)}
+        style={alertStyles.input}
+      />
+      <button
+        onClick={() => create.mutate()}
+        disabled={!valid || create.isPending}
+        style={{ ...alertStyles.submit, opacity: valid && !create.isPending ? 1 : 0.5 }}
+      >
+        {create.isSuccess ? "알림 추가됨 ✓" : "알림 추가"}
+      </button>
+      {create.isError && (
+        <div style={alertStyles.err}>알림 추가에 실패했습니다.</div>
+      )}
+    </section>
+  );
+}
+
+const alertStyles: Record<string, React.CSSProperties> = {
+  card: {
+    background: "var(--bg-panel)", border: "1px solid var(--border-subtle)",
+    borderRadius: "var(--radius-lg)", padding: 16, display: "grid", gap: 10,
+  },
+  title: { fontSize: 13, fontWeight: 700, color: "var(--text-secondary)" },
+  row: { display: "flex", gap: 6 },
+  dirBtn: {
+    flex: 1, height: 32, fontSize: 13, cursor: "pointer",
+    background: "transparent", color: "var(--text-secondary)",
+    border: "1px solid var(--border-subtle)", borderRadius: "var(--radius-sm)",
+  },
+  dirActive: { background: "var(--bg-hover)", color: "var(--text-primary)", fontWeight: 600 },
+  label: { fontSize: 11, color: "var(--text-tertiary)" },
+  input: {
+    height: 36, padding: "0 12px", fontSize: 14,
+    background: "var(--bg-base)", color: "var(--text-primary)",
+    border: "1px solid var(--border-subtle)", borderRadius: "var(--radius-sm)", outline: "none",
+  },
+  submit: {
+    height: 36, fontSize: 13, fontWeight: 600, cursor: "pointer",
+    background: "var(--color-primary)", color: "#fff",
+    border: "none", borderRadius: "var(--radius-sm)",
+  },
+  err: { fontSize: 11, color: "var(--color-down)" },
+};
 
 function DailyCandleChart({ candles }: { candles: DailyCandle[] }) {
   const mode = useThemeStore((s) => s.mode);
@@ -219,6 +311,7 @@ const styles: Record<string, React.CSSProperties> = {
     fontWeight: 600,
   },
   body: { display: "grid", gridTemplateColumns: "1fr 340px", gap: 16 },
+  sideCol: { display: "grid", gap: 16, alignContent: "start" },
   card: {
     background: "var(--bg-panel)", border: "1px solid var(--border-subtle)",
     borderRadius: "var(--radius-lg)", padding: 20,

@@ -44,6 +44,9 @@ public enum ErrorCode {
     AI_DAILY_LIMIT        (HttpStatus.TOO_MANY_REQUESTS, "AI_001", "오늘의 AI 코치 호출 한도를 초과했습니다."),
     AI_API_ERROR          (HttpStatus.BAD_GATEWAY,       "AI_002", "AI 코치 API 호출에 실패했습니다."),
 
+    // 가격 알림
+    ALERT_NOT_FOUND       (HttpStatus.NOT_FOUND,         "ALERT_001", "가격 알림을 찾을 수 없습니다."),
+
     // 관리자
     STEPUP_REQUIRED       (HttpStatus.UNAUTHORIZED,     "ADMIN_001", "위험 작업에는 비밀번호 재인증이 필요합니다."),
     ADMIN_FORBIDDEN_SELF  (HttpStatus.FORBIDDEN,        "ADMIN_003", "본인 계정에는 이 작업을 수행할 수 없습니다."),

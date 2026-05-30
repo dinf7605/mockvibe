@@ -9,6 +9,7 @@ import SignupPage from "./pages/SignupPage";
 import StockSearchPage from "./pages/StockSearchPage";
 import StockDetailPage from "./pages/StockDetailPage";
 import WatchlistPage from "./pages/WatchlistPage";
+import AlertsPage from "./pages/AlertsPage";
 import HistoryPage from "./pages/HistoryPage";
 import LimitOrdersPage from "./pages/LimitOrdersPage";
 import BacktestPage from "./pages/BacktestPage";
@@ -46,6 +47,7 @@ export const router = createBrowserRouter([
       { path: "dashboard", element: <DashboardPage /> },
       { path: "search", element: <StockSearchPage /> },
       { path: "watchlist", element: <WatchlistPage /> },
+      { path: "alerts", element: <AlertsPage /> },
       { path: "stocks/:ticker", element: <StockDetailPage /> },
       { path: "history", element: <HistoryPage /> },
       { path: "orders", element: <LimitOrdersPage /> },

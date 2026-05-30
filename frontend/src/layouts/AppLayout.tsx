@@ -1,12 +1,15 @@
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
 import { useThemeStore } from "../store/themeStore";
 import { useAuthStore } from "../store/authStore";
 import { logout as apiLogout } from "../api/auth";
+import { getTriggeredCount } from "../api/alerts";
 
 const NAV = [
   { to: "/dashboard", label: "대시보드", end: true },
   { to: "/search", label: "종목 검색" },
   { to: "/watchlist", label: "관심종목" },
+  { to: "/alerts", label: "알림" },
   { to: "/history", label: "거래 내역" },
   { to: "/orders", label: "예약 주문" },
   { to: "/backtest", label: "백테스트" },
@@ -20,6 +23,14 @@ export default function AppLayout() {
   const isAdmin = useAuthStore((s) => s.isAdmin());
   const user = useAuthStore((s) => s.user);
   const clear = useAuthStore((s) => s.clear);
+
+  // 알림 벨 배지 — 미확인(TRIGGERED) 개수 주기적 폴링
+  const { data: triggeredCount } = useQuery({
+    queryKey: ["alerts", "triggered-count"],
+    queryFn: getTriggeredCount,
+    refetchInterval: 15_000,
+    staleTime: 10_000,
+  });
 
   async function handleLogout() {
     await apiLogout();
@@ -48,6 +59,9 @@ export default function AppLayout() {
               })}
             >
               {item.label}
+              {item.to === "/alerts" && !!triggeredCount && triggeredCount > 0 && (
+                <span style={styles.badge}>{triggeredCount}</span>
+              )}
             </NavLink>
           ))}
           {isAdmin && (
@@ -134,6 +148,23 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: 13,
     fontWeight: 500,
     transition: "all var(--duration-fast) var(--ease-emphasis)",
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 6,
+  },
+  badge: {
+    minWidth: 16,
+    height: 16,
+    padding: "0 5px",
+    borderRadius: 999,
+    background: "var(--color-up)",
+    color: "#fff",
+    fontSize: 10,
+    fontWeight: 700,
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    lineHeight: 1,
   },
   right: {
     display: "flex",
