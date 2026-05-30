@@ -446,3 +446,51 @@ pre {
   .grid-2 { grid-template-columns: 1fr; }
   .detail-body { grid-template-columns: 1fr; }
 }
+
+/* ==========================================================================
+   상호작용 다듬기 (접근성·체감)
+   ========================================================================== */
+/* 표 행 hover 하이라이트 — tbody 행에만 */
+table.tabular tbody tr { transition: background var(--duration-fast) var(--ease-emphasis); }
+table.tabular tbody tr:hover { background: var(--bg-hover); }
+
+/* 입력 포커스 링 — 인라인 border(outline:none)를 덮지 않는 box-shadow 로 표시 */
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.25);
+  border-color: var(--color-primary);
+}
+/* 키보드 포커스 가시화 (버튼·링크) */
+button:focus-visible,
+a:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+/* ==========================================================================
+   로딩 스켈레톤 (shimmer)
+   ========================================================================== */
+.skeleton {
+  position: relative;
+  overflow: hidden;
+  background: var(--bg-hover);
+  border-radius: var(--radius-sm);
+}
+.skeleton::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.10),
+    transparent
+  );
+  animation: shimmer 1.3s infinite;
+}
+@keyframes shimmer { 100% { transform: translateX(100%); } }
+.skeleton-grid { display: grid; gap: 12px; }

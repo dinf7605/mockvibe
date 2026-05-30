@@ -128,7 +128,20 @@ function Card({ title, children }: { title: string; children: React.ReactNode })
 }
 
 function Skeleton() {
-  return <div style={{ color: "var(--text-tertiary)" }}>불러오는 중...</div>;
+  return (
+    <div style={{ display: "grid", gap: 20 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12 }}>
+        {Array.from({ length: 4 }).map((_, i) => (
+          <div key={i} className="skeleton" style={{ height: 84, borderRadius: "var(--radius-lg)" }} />
+        ))}
+      </div>
+      <div className="grid-2">
+        <div className="skeleton" style={{ height: 300, borderRadius: "var(--radius-lg)" }} />
+        <div className="skeleton" style={{ height: 300, borderRadius: "var(--radius-lg)" }} />
+      </div>
+      <div className="skeleton" style={{ height: 200, borderRadius: "var(--radius-lg)" }} />
+    </div>
+  );
 }
 
 function ErrorBox({ message }: { message: string }) {
