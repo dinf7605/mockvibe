@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { getAlerts, cancelAlert, type Alert, type AlertStatus } from "../api/alerts";
 import { useToast } from "../components/Toast";
+import { EmptyState } from "../components/EmptyState";
 
 const STATUS_LABEL: Record<AlertStatus, string> = {
   ACTIVE: "감시중",
@@ -80,10 +81,18 @@ export default function AlertsPage() {
             ))}
             {(!data || data.length === 0) && (
               <tr>
-                <td colSpan={6} style={styles.empty}>
-                  {isLoading
-                    ? "불러오는 중..."
-                    : "설정한 알림이 없습니다. 종목 상세에서 목표가 알림을 추가하세요."}
+                <td colSpan={6}>
+                  {isLoading ? (
+                    <div style={styles.empty}>불러오는 중...</div>
+                  ) : (
+                    <EmptyState
+                      icon="🔔"
+                      title="설정한 알림이 없습니다"
+                      desc="종목 상세에서 목표가를 정하면, 도달할 때 알려드려요."
+                      to="/search"
+                      ctaLabel="종목 검색하기"
+                    />
+                  )}
                 </td>
               </tr>
             )}

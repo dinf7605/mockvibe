@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { getWatchlist, removeWatchlist } from "../api/watchlist";
 import { useToast } from "../components/Toast";
+import { EmptyState } from "../components/EmptyState";
 import { formatKrw } from "../lib/format";
 
 function formatPrice(currency: string, price: number | null): string {
@@ -70,10 +71,18 @@ export default function WatchlistPage() {
             ))}
             {(!data || data.length === 0) && (
               <tr>
-                <td colSpan={5} style={styles.empty}>
-                  {isLoading
-                    ? "불러오는 중..."
-                    : "관심종목이 없습니다. 종목 상세에서 ☆ 를 눌러 추가하세요."}
+                <td colSpan={5}>
+                  {isLoading ? (
+                    <div style={styles.empty}>불러오는 중...</div>
+                  ) : (
+                    <EmptyState
+                      icon="⭐"
+                      title="관심종목이 없습니다"
+                      desc="종목 상세 화면에서 ☆ 를 눌러 관심종목에 추가하세요."
+                      to="/search"
+                      ctaLabel="종목 검색하기"
+                    />
+                  )}
                 </td>
               </tr>
             )}

@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { searchStocks } from "../api/stocks";
+import { EmptyState } from "../components/EmptyState";
 import { formatKrw } from "../lib/format";
 
 const MARKETS = [
@@ -77,7 +78,17 @@ export default function StockSearchPage() {
               </tr>
             ))}
             {(!data || data.items.length === 0) && (
-              <tr><td colSpan={4} style={styles.empty}>{isFetching ? "검색 중..." : "검색 결과가 없습니다."}</td></tr>
+              <tr><td colSpan={4}>
+                {isFetching ? (
+                  <div style={styles.empty}>검색 중...</div>
+                ) : (
+                  <EmptyState
+                    icon="🔍"
+                    title="검색 결과가 없습니다"
+                    desc="종목명 또는 티커로 다시 검색해 보세요. (예: 삼성전자, AAPL)"
+                  />
+                )}
+              </td></tr>
             )}
           </tbody>
         </table>

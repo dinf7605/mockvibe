@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { getHistory, type OrderSide } from "../api/trades";
+import { EmptyState } from "../components/EmptyState";
 import { formatKrw } from "../lib/format";
 
 const SIDE_FILTERS: Array<{ label: string; value: OrderSide | "" }> = [
@@ -67,8 +68,18 @@ export default function HistoryPage() {
               </tr>
             ))}
             {items.length === 0 && (
-              <tr><td colSpan={7} style={styles.empty}>
-                {isFetching ? "불러오는 중..." : "표시할 거래 내역이 없습니다."}
+              <tr><td colSpan={7}>
+                {isFetching ? (
+                  <div style={styles.empty}>불러오는 중...</div>
+                ) : (
+                  <EmptyState
+                    icon="🧾"
+                    title="거래 내역이 없습니다"
+                    desc="첫 매수를 하면 여기에 체결 기록이 쌓입니다."
+                    to="/search"
+                    ctaLabel="종목 검색하기"
+                  />
+                )}
               </td></tr>
             )}
           </tbody>

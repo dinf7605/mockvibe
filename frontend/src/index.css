@@ -494,3 +494,18 @@ a:focus-visible {
 }
 @keyframes shimmer { 100% { transform: translateX(100%); } }
 .skeleton-grid { display: grid; gap: 12px; }
+
+/* ==========================================================================
+   빈 상태
+   ========================================================================== */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 36px 20px;
+  text-align: center;
+}
+.empty-ico { font-size: 34px; opacity: 0.7; }
+.empty-title { font-size: 14px; font-weight: 600; color: var(--text-secondary); }
+.empty-desc { font-size: 13px; color: var(--text-tertiary); line-height: 1.5; max-width: 360px; }

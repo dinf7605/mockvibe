@@ -1,7 +1,11 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { AxiosError } from "axios";
 import ReactApexChart from "react-apexcharts";
 import { Link } from "react-router-dom";
 import { getPortfolio } from "../api/portfolio";
+import { getAiReports, analyzeNow, AI_TYPE_LABEL } from "../api/ai";
+import { useToast } from "../components/Toast";
+import { EmptyState } from "../components/EmptyState";
 import { formatKrw, formatPct, trendClass } from "../lib/format";
 import { useThemeStore } from "../store/themeStore";
 
@@ -51,19 +55,19 @@ export default function DashboardPage() {
           />
         </Card>
 
-        <Card title="AI 위클리 리포트 · 예정 D39">
-          <div style={styles.placeholderBox}>
-            Phase 6에서 Claude API 연동 후 매주 일요일 자동 생성됩니다.
-          </div>
-        </Card>
+        <AiCard />
       </section>
 
       {/* 보유 종목 */}
       <Card title={`보유 종목 (${data.holdings.length})`}>
         {data.holdings.length === 0 ? (
-          <div style={styles.placeholderBox}>
-            아직 보유 종목이 없습니다. <Link to="/search" style={styles.link}>종목 검색</Link>에서 첫 매수를 시도해 보세요.
-          </div>
+          <EmptyState
+            icon="📈"
+            title="아직 보유 종목이 없습니다"
+            desc="종목을 검색해 첫 매수를 시도해 보세요. 가입 시 받은 시드머니로 바로 거래할 수 있어요."
+            to="/search"
+            ctaLabel="종목 검색하기"
+          />
         ) : (
           <div className="table-scroll">
           <table style={styles.table} className="tabular">
@@ -118,6 +122,66 @@ function Kpi({ label, value, highlight, tone }: { label: string; value: string; 
   );
 }
 
+function AiCard() {
+  const qc = useQueryClient();
+  const notify = useToast();
+  const { data: reports, isLoading } = useQuery({
+    queryKey: ["ai", "latest"],
+    queryFn: () => getAiReports(1),
+  });
+  const latest = reports?.[0];
+
+  const analyze = useMutation({
+    mutationFn: analyzeNow,
+    onSuccess: () => {
+      notify.success("AI 분석을 생성했습니다.");
+      qc.invalidateQueries({ queryKey: ["ai", "latest"] });
+    },
+    onError: (e) => {
+      const ax = e as AxiosError<{ message?: string }>;
+      notify.error(ax.response?.data?.message ?? "분석 생성에 실패했습니다.");
+    },
+  });
+
+  return (
+    <section style={styles.card}>
+      <div style={styles.aiHead}>
+        <div style={styles.cardTitle}>AI 코치</div>
+        <button
+          className="btn"
+          onClick={() => analyze.mutate()}
+          disabled={analyze.isPending}
+          style={{ height: 30, fontSize: 12, padding: "0 12px" }}
+        >
+          {analyze.isPending ? "분석 중…" : "지금 분석"}
+        </button>
+      </div>
+
+      {isLoading ? (
+        <div className="skeleton" style={{ height: 120, borderRadius: "var(--radius-md)" }} />
+      ) : latest ? (
+        <div>
+          <div style={styles.aiMeta}>
+            <span style={styles.aiBadge}>{AI_TYPE_LABEL[latest.reportType]}</span>
+            <span style={{ fontSize: 11, color: "var(--text-tertiary)" }}>
+              {new Date(latest.createdAt).toLocaleString("ko-KR")}
+            </span>
+          </div>
+          <div style={styles.aiContent}>{latest.content}</div>
+        </div>
+      ) : (
+        <EmptyState
+          icon="🤖"
+          title="아직 AI 리포트가 없어요"
+          desc="매매하면 자동 코멘트가 쌓이고 매주 일요일 회고가 생성됩니다. 지금 바로 분석을 받아볼 수도 있어요."
+          onAction={() => analyze.mutate()}
+          ctaLabel="지금 분석 받기"
+        />
+      )}
+    </section>
+  );
+}
+
 function Card({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section style={styles.card}>
@@ -169,6 +233,16 @@ const styles: Record<string, React.CSSProperties> = {
     borderRadius: "var(--radius-lg)", padding: 20,
   },
   cardTitle: { fontSize: 13, fontWeight: 700, color: "var(--text-secondary)", marginBottom: 12 },
+  aiHead: { display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 },
+  aiMeta: { display: "flex", alignItems: "center", gap: 8, marginBottom: 8 },
+  aiBadge: {
+    fontSize: 11, fontWeight: 700, color: "var(--color-primary)",
+    background: "rgba(79, 70, 229, 0.10)", padding: "2px 8px", borderRadius: 999,
+  },
+  aiContent: {
+    fontSize: 13, lineHeight: 1.6, color: "var(--text-secondary)",
+    whiteSpace: "pre-wrap", maxHeight: 200, overflowY: "auto",
+  },
   placeholderBox: {
     padding: 24, color: "var(--text-tertiary)", fontSize: 13, textAlign: "center" as const,
   },

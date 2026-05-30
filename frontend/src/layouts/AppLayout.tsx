@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { useThemeStore } from "../store/themeStore";
@@ -126,7 +126,9 @@ export default function AppLayout() {
         </header>
 
         <main className="app-content">
-          <Outlet />
+          <Suspense fallback={<div className="skeleton" style={{ height: 240, borderRadius: "var(--radius-lg)" }} />}>
+            <Outlet />
+          </Suspense>
         </main>
       </div>
 
