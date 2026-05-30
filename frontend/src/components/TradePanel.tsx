@@ -3,6 +3,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { AxiosError } from "axios";
 import { buyMarket, sellMarket } from "../api/trades";
 import { formatKrw } from "../lib/format";
+import { useToast } from "./Toast";
 
 interface ApiError { code?: string; message?: string }
 
@@ -15,9 +16,9 @@ interface Props {
 
 export function TradePanel({ ticker, currentPriceKrw, priceSourceHint }: Props) {
   const qc = useQueryClient();
+  const notify = useToast();
   const [side, setSide] = useState<"BUY" | "SELL">("BUY");
   const [qty, setQty] = useState<string>("1");
-  const [toast, setToast] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const mutation = useMutation({
@@ -28,14 +29,15 @@ export function TradePanel({ ticker, currentPriceKrw, priceSourceHint }: Props) 
     },
     onSuccess: (r) => {
       setError(null);
-      setToast(`${side === "BUY" ? "매수" : "매도"} 체결: ${r.quantity}주 · ${formatKrw(r.totalAmountKrw)}`);
+      notify.success(`${side === "BUY" ? "매수" : "매도"} 체결 · ${r.quantity}주 · ${formatKrw(r.totalAmountKrw)}`);
       qc.invalidateQueries({ queryKey: ["portfolio"] });
       qc.invalidateQueries({ queryKey: ["history"] });
-      setTimeout(() => setToast(null), 3000);
     },
     onError: (e) => {
       const ax = e as AxiosError<ApiError>;
-      setError(ax.response?.data?.message ?? (e as Error).message ?? "주문 실패");
+      const msg = ax.response?.data?.message ?? (e as Error).message ?? "주문 실패";
+      setError(msg);
+      notify.error(msg);
     },
   });
 
@@ -89,7 +91,6 @@ export function TradePanel({ ticker, currentPriceKrw, priceSourceHint }: Props) 
       )}
 
       {error && <div style={styles.error}>{error}</div>}
-      {toast && <div style={styles.toast}>{toast}</div>}
 
       <button
         onClick={() => mutation.mutate()}

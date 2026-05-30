@@ -16,6 +16,7 @@ import {
 } from "../api/stocks";
 import { isWatching, addWatchlist, removeWatchlist } from "../api/watchlist";
 import { createAlert, type AlertDirection } from "../api/alerts";
+import { useToast } from "../components/Toast";
 import { useStompPrice } from "../hooks/useStompPrice";
 import { TradePanel } from "../components/TradePanel";
 import { formatKrw, formatPct, trendClass } from "../lib/format";
@@ -48,6 +49,7 @@ export default function StockDetailPage() {
 
   // 관심종목 여부 + 토글
   const qc = useQueryClient();
+  const notify = useToast();
   const { data: watching } = useQuery({
     queryKey: ["watching", ticker],
     queryFn: () => isWatching(ticker!),
@@ -57,9 +59,11 @@ export default function StockDetailPage() {
     mutationFn: () =>
       watching ? removeWatchlist(ticker!) : addWatchlist(ticker!),
     onSuccess: () => {
+      notify.success(watching ? "관심종목에서 제거했습니다." : "관심종목에 추가했습니다.");
       qc.invalidateQueries({ queryKey: ["watching", ticker] });
       qc.invalidateQueries({ queryKey: ["watchlist"] });
     },
+    onError: () => notify.error("관심종목 변경에 실패했습니다."),
   });
 
   const live = useStompPrice(ticker);
@@ -158,6 +162,7 @@ function AlertCard({
   defaultPrice: number;
 }) {
   const qc = useQueryClient();
+  const notify = useToast();
   const [direction, setDirection] = useState<AlertDirection>("ABOVE");
   const [price, setPrice] = useState<string>(defaultPrice ? String(defaultPrice) : "");
 
@@ -165,9 +170,11 @@ function AlertCard({
     mutationFn: () =>
       createAlert({ ticker, direction, targetPrice: Number(price) }),
     onSuccess: () => {
+      notify.success(`알림 추가 · ${direction === "ABOVE" ? "이상" : "이하"} ${Number(price).toLocaleString()}`);
       qc.invalidateQueries({ queryKey: ["alerts"] });
       qc.invalidateQueries({ queryKey: ["alerts", "triggered-count"] });
     },
+    onError: () => notify.error("알림 추가에 실패했습니다."),
   });
 
   const valid = price !== "" && Number(price) > 0;

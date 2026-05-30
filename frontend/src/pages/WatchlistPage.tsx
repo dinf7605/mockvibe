@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { getWatchlist, removeWatchlist } from "../api/watchlist";
+import { useToast } from "../components/Toast";
 import { formatKrw } from "../lib/format";
 
 function formatPrice(currency: string, price: number | null): string {
@@ -10,6 +11,7 @@ function formatPrice(currency: string, price: number | null): string {
 
 export default function WatchlistPage() {
   const qc = useQueryClient();
+  const notify = useToast();
   const { data, isLoading } = useQuery({
     queryKey: ["watchlist"],
     queryFn: getWatchlist,
@@ -17,7 +19,11 @@ export default function WatchlistPage() {
 
   const remove = useMutation({
     mutationFn: (ticker: string) => removeWatchlist(ticker),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["watchlist"] }),
+    onSuccess: () => {
+      notify.success("관심종목에서 제거했습니다.");
+      qc.invalidateQueries({ queryKey: ["watchlist"] });
+    },
+    onError: () => notify.error("제거에 실패했습니다."),
   });
 
   return (

@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { getAlerts, cancelAlert, type Alert, type AlertStatus } from "../api/alerts";
+import { useToast } from "../components/Toast";
 
 const STATUS_LABEL: Record<AlertStatus, string> = {
   ACTIVE: "감시중",
@@ -21,14 +22,17 @@ function fmtPrice(p: number | null): string {
 
 export default function AlertsPage() {
   const qc = useQueryClient();
+  const notify = useToast();
   const { data, isLoading } = useQuery({ queryKey: ["alerts"], queryFn: getAlerts });
 
   const cancel = useMutation({
     mutationFn: (id: number) => cancelAlert(id),
     onSuccess: () => {
+      notify.success("알림을 처리했습니다.");
       qc.invalidateQueries({ queryKey: ["alerts"] });
       qc.invalidateQueries({ queryKey: ["alerts", "triggered-count"] });
     },
+    onError: () => notify.error("처리에 실패했습니다."),
   });
 
   return (
