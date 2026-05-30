@@ -34,6 +34,7 @@ export default function WatchlistPage() {
       </section>
 
       <section style={styles.card}>
+        <div className="table-scroll">
         <table style={styles.table} className="tabular">
           <thead>
             <tr style={styles.thRow}>
@@ -78,6 +79,7 @@ export default function WatchlistPage() {
             )}
           </tbody>
         </table>
+        </div>
       </section>
     </div>
   );

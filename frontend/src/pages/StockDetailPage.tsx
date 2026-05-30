@@ -130,7 +130,7 @@ export default function StockDetailPage() {
         </div>
       </header>
 
-      <div style={styles.body}>
+      <div className="detail-body">
         <section style={styles.card}>
           <div style={styles.cardTitle}>
             일봉 (최근 {candles?.length ?? 0}일)

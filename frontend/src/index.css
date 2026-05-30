@@ -437,3 +437,12 @@ pre {
 
 /* 모바일에서 넓은 표가 잘리지 않도록 가로 스크롤 */
 .table-scroll { width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.table-scroll > table { min-width: 520px; }
+
+/* 반응형 그리드 — 모바일에서 1열로 접힘 */
+.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.detail-body { display: grid; grid-template-columns: 1fr 340px; gap: 16px; align-items: start; }
+@media (max-width: 899px) {
+  .grid-2 { grid-template-columns: 1fr; }
+  .detail-body { grid-template-columns: 1fr; }
+}

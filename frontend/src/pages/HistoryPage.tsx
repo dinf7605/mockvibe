@@ -37,6 +37,7 @@ export default function HistoryPage() {
       </section>
 
       <section style={styles.card}>
+        <div className="table-scroll">
         <table style={styles.table} className="tabular">
           <thead>
             <tr style={styles.thRow}>
@@ -72,6 +73,7 @@ export default function HistoryPage() {
             )}
           </tbody>
         </table>
+        </div>
       </section>
 
       {data && data.totalPages > 1 && (

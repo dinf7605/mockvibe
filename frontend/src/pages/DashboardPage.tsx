@@ -33,7 +33,7 @@ export default function DashboardPage() {
       </section>
 
       {/* 자산 비중 도넛 + AI 위클리 자리 */}
-      <section style={styles.row2}>
+      <section className="grid-2">
         <Card title="자산 비중">
           <ReactApexChart
             type="donut"
@@ -65,6 +65,7 @@ export default function DashboardPage() {
             아직 보유 종목이 없습니다. <Link to="/search" style={styles.link}>종목 검색</Link>에서 첫 매수를 시도해 보세요.
           </div>
         ) : (
+          <div className="table-scroll">
           <table style={styles.table} className="tabular">
             <thead>
               <tr style={styles.thRow}>
@@ -99,6 +100,7 @@ export default function DashboardPage() {
               ))}
             </tbody>
           </table>
+          </div>
         )}
       </Card>
     </div>

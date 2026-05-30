@@ -46,6 +46,7 @@ export default function StockSearchPage() {
       </section>
 
       <section style={styles.card}>
+        <div className="table-scroll">
         <table style={styles.table} className="tabular">
           <thead>
             <tr style={styles.thRow}>
@@ -80,6 +81,7 @@ export default function StockSearchPage() {
             )}
           </tbody>
         </table>
+        </div>
       </section>
 
       {data && data.totalPages > 1 && (

@@ -36,7 +36,7 @@ export default function RiskPage() {
         </section>
       )}
 
-      <section style={row2}>
+      <section className="grid-2">
         <Card title="지역 비중">
           <ShareDonut data={data.regionShare} mode={mode} />
         </Card>
@@ -99,7 +99,6 @@ const kpi: React.CSSProperties = {
 };
 const kpiLabel: React.CSSProperties = { fontSize: 12, color: "var(--text-secondary)", marginBottom: 6 };
 const kpiValue: React.CSSProperties = { fontSize: 22, fontWeight: 700, fontVariantNumeric: "tabular-nums" };
-const row2: React.CSSProperties = { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 };
 const card: React.CSSProperties = {
   background: "var(--bg-panel)", border: "1px solid var(--border-subtle)",
   borderRadius: "var(--radius-lg)", padding: 20,
