@@ -38,9 +38,9 @@ export default function LandingPage() {
   ];
 
   const stats: Stat[] = [
-    { value: "32.7ms", label: "매수 API p95 응답" },
-    { value: "21,361", label: "k6 부하 호출 (50 VU)" },
-    { value: "0.02%", label: "실패율" },
+    { value: "15.3ms", label: "매수 API p95 응답" },
+    { value: "23,164", label: "k6 부하 호출 (50 VU)" },
+    { value: "0.00%", label: "실패율" },
     { value: "80/80", label: "단위 테스트 통과" },
   ];
 
