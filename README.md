@@ -76,7 +76,7 @@ flowchart LR
     end
 
     subgraph Infra["Infra"]
-        Oracle[(Oracle XE 21c<br/>Flyway V1~V7)]
+        Oracle[(Oracle XE 21c<br/>Flyway V1~V9)]
         Redis[(Redis 7<br/>RT / Blacklist / Cache)]
         Prom[Prometheus]
     end
@@ -101,10 +101,10 @@ flowchart LR
 |---|---|
 | **Backend** | Spring Boot 3.5.6 · Java 17 · JPA · WebSocket(STOMP) · Spring Security · Resilience4j · Bucket4j · springdoc-openapi |
 | **Frontend** | Vite 8 · React 19 · TypeScript 6 · Zustand · @tanstack/react-query · axios · @stomp/stompjs · lightweight-charts · ApexCharts |
-| **DB / Cache** | Oracle XE 21c (Docker `gvenzl/oracle-xe:21-slim-faststart`) · Flyway V1~V7 · Redis 7-alpine |
+| **DB / Cache** | Oracle XE 21c (Docker `gvenzl/oracle-xe:21-slim-faststart`) · Flyway V1~V9 · Redis 7-alpine |
 | **External** | KIS 모의투자 · Finnhub · ExchangeRate-API · Gemini (Claude 추상화 호환) |
 | **Observability** | Micrometer · Prometheus · MDC RequestId · k6 부하 테스트 |
-| **Infra (예정)** | AWS EC2 t3.micro + Nginx HTTPS · Vercel · Oracle Autonomous DB |
+| **Infra** | AWS EC2 t3.micro + Nginx HTTPS · Vercel · Oracle Autonomous DB · GitHub Actions 자동 배포 |
 
 ---
 
@@ -120,7 +120,8 @@ flowchart LR
 
 - 시장가 매수/매도 — Wallet **비관적 락** + Holdings **낙관적 락 하이브리드**
 - **10병렬 동시 매수 테스트** — 잔고 정합성 검증 통과
-- 지정가 주문 — Event-driven, per-ticker `ReentrantLock`, 만료 배치(cron)
+- 지정가 주문 — Event-driven, per-ticker `ReentrantLock`, 만료 배치(cron). **풀스택 UI**(시장가/지정가 토글 + 예약 주문 목록·취소)
+- **주문 멱등성 키** — `Idempotency-Key` 헤더 → Redis(`idem:{userId}:{key}`, TTL 24h)로 중복 제출(재시도·더블클릭) 1회만 체결
 - 거래 내역 + 예약 주문 관리
 
 <details>
@@ -163,6 +164,13 @@ sequenceDiagram
 - STOMP `/topic/price/{ticker}` 릴레이 + heartbeat
 - **PriceBroadcaster Micrometer** lag/count/late SLA(100ms) 측정
 - 환율 1분 캐시 + FX_RATES 시계열, KRW 단일 지갑 + USD 환산
+- **일봉 실데이터** — 한국 KIS 일봉 + **미국 Yahoo Finance 일봉**(무료, 1년치 backfill + 매일 cron). 장 외 시간엔 최근 종가 폴백으로 매매 가능
+- `MarketPollingScheduler` 분당 quote 폴링 → PriceCache + intraday 누적 (KIS WS 불안정 보완)
+
+### 개인화 / 알림 (D50+)
+- ⭐ **관심종목 워치리스트** — 종목 상세 ☆ 토글 + 전용 목록
+- 🔔 **가격 알림** — 목표가(이상/이하) 설정 → `PriceUpdatedEvent` 구독 처리기가 도달 시 트리거. 네비 벨 미확인 배지(폴링)
+- 매매·관심·알림 동작에 **전역 토스트** 피드백
 
 ### AI 코치 (Gemini)
 - 매매 직후 `OrderExecutedEvent` → `AiCommentListener` 자동 코멘트
@@ -231,8 +239,10 @@ mockvibe/
 ├── backend/                    # Spring Boot 3.5
 │   └── src/main/java/com/fintech/simulator/
 │       ├── auth/               # JWT + RBAC
-│       ├── market/             # Provider 추상화 (kis / finnhub / mock)
+│       ├── market/             # Provider 추상화 (kis / finnhub / yahoo / mock)
 │       ├── trading/            # 시장가 + 지정가 + 동시성
+│       ├── watchlist/          # 관심종목 (V8)
+│       ├── alert/              # 가격 알림 (V9)
 │       ├── portfolio/          # 보유/대시보드
 │       ├── fx/                 # 환율 캐시
 │       ├── backtest/           # 전략 엔진 + 시뮬레이션
@@ -240,9 +250,9 @@ mockvibe/
 │       ├── ai/                 # Gemini 코치 + Redis Limiter
 │       ├── admin/              # 7 컨트롤러 + 감사 AOP
 │       ├── config/             # Security / CB / Bucket4j
-│       └── common/             # ErrorCode 28종 / RequestId
-├── frontend/                   # Vite + React 19 + TS
-│   └── src/pages/              # 12 page + admin/7
+│       └── common/             # ErrorCode / RequestId / Idempotency
+├── frontend/                   # Vite + React 19 + TS (반응형 셸 + 코드 스플리팅)
+│   └── src/pages/              # 14 page + admin/7
 ├── docker/                     # Oracle XE + Redis compose
 ├── perf/                       # k6 시나리오
 ├── docs/decisions/             # ADR (9건. 추가 예정)
@@ -264,6 +274,8 @@ mockvibe/
 | **V5** | P5 D31 | BACKTEST_RUNS |
 | **V6** | P6 D36 | AI_REPORTS |
 | **V7** | P7 D41 | ADMIN_AUDIT_LOGS · ANNOUNCEMENTS |
+| **V8** | D50+ | WATCHLIST (관심종목) |
+| **V9** | D50+ | PRICE_ALERT (가격 알림) |
 
 > **왜 점진 마이그레이션?** [ADR-001](docs/decisions/ADR-001-data-model.md) 참조 — 운영의 사실성 + 롤백 단위 격리.
 
@@ -276,7 +288,8 @@ mockvibe/
 | KIS WS/REST | 한국 주식 OAuth + approval_key + 실시간 시세 | `kis-auth`, `kis-approval`, `kis-rest` | `@ConditionalOnProperty(kis.enabled)` |
 | Finnhub WS | 미국 주식 실시간 시세 (5종목 무료 티어) | (재시도 정책) | `@ConditionalOnProperty(finnhub.enabled)` |
 | ExchangeRate-API | KRW/USD 환율, 1분 캐시 | `fx-rate` | — |
-| Gemini | AI 코멘트/회고, mainModel + weeklyModel 분리 | `claude` (이름 유지) | Redis 일일 한도 |
+| Yahoo Finance | 미국 종목 일봉 1년치 (무료·키 불필요, Stooq 대체) | — | — |
+| Gemini | AI 코멘트/회고, mainModel + weeklyModel 분리 | `claude` (이름 유지) | Redis 일일 한도 · `@ConditionalOnProperty(gemini.api-key)` |
 
 **CB 정책**: 5개 인스턴스 모두 `failureRate 50% · waitDurationInOpenState 30s`. Open 상태에서는 Mock Engine으로 폴백하여 **데모가 절대 멈추지 않음**.
 
@@ -315,9 +328,21 @@ mockvibe/
   - ✅ **`git push` 만으로 자동 배포** (GitHub Actions → SSH → EC2)
   - ✅ 종단 테스트 통과 (회원가입 → 로그인 → 종목 상세 → wss 101)
   - 📄 [11건의 운영 이슈 진단 기록](docs/operations/d49-deployment-postmortem.md)
-- ⏳ **D50** ADR 12개 추가 + 데모 영상
+- ✅ **D50** ADR + 데모 스크립트 + 문서 사이트
+
+### D50 이후 추가 기능
+- ✅ 미국 일봉 실데이터 (Yahoo Finance) + `STOCKS.current_price` 동기화
+- ✅ 관심종목 워치리스트 (V8)
+- ✅ 가격 알림 — 목표가 도달 트리거 (V9)
+- ✅ 주문 멱등성 키 (Idempotency-Key + Redis)
+- ✅ 지정가 주문 풀스택 UI (시장가/지정가 토글 + 예약 주문 관리)
+- ✅ **유저 친화적 리디자인** — 반응형 앱 셸(데스크톱 사이드바 / 모바일 하단 탭바), 전역 토스트, 빈 상태, 라우트 코드 스플리팅(초기 번들 1.19MB→374KB)
+- ✅ 대시보드 AI 카드 실연동 (`/ai/reports` + 즉시 분석)
+
+### 향후 후보
 - 💡 OpenTelemetry 분산 추적
-- 💡 Web Push 알림 (지정가 체결 / 리스크 임계 돌파)
+- 💡 Web Push 알림 (브라우저 푸시)
+- 💡 수익률 랭킹/리더보드 · 분봉 차트
 
 ---
 
