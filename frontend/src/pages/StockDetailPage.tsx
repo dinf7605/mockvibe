@@ -143,6 +143,8 @@ export default function StockDetailPage() {
           <TradePanel
             ticker={ticker}
             currentPriceKrw={estimatedKrw}
+            currency={stock.currency}
+            currentPriceNative={displayPrice || null}
             priceSourceHint={isUsingClose ? `종가 ${lastClose?.tradeDate ?? ""}` : null}
           />
           <AlertCard ticker={ticker} currency={stock.currency} defaultPrice={displayPrice} />
