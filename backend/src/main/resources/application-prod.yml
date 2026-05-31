@@ -93,3 +93,10 @@ app:
     claude:
       base-url: https://api.anthropic.com
       api-key: ${GEMINI_API_KEY:${CLAUDE_API_KEY:}}
+    # AI 코치 실제 구현 — GeminiClient 가 읽는 설정 (@ConditionalOnProperty app.external.gemini.api-key).
+    # 이 블록이 없으면 GEMINI_API_KEY 가 주입돼도 Bean 이 비활성화되어 AI 코치가 꺼진다.
+    gemini:
+      base-url: https://generativelanguage.googleapis.com/v1beta
+      api-key: ${GEMINI_API_KEY:}
+      main-model:   gemini-3.1-flash-lite
+      weekly-model: gemini-3.5-flash
