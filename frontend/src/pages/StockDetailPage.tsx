@@ -16,6 +16,7 @@ import {
 } from "../api/stocks";
 import { isWatching, addWatchlist, removeWatchlist } from "../api/watchlist";
 import { createAlert, type AlertDirection } from "../api/alerts";
+import { getStockNews } from "../api/news";
 import { useToast } from "../components/Toast";
 import { useStompPrice } from "../hooks/useStompPrice";
 import { TradePanel } from "../components/TradePanel";
@@ -150,9 +151,46 @@ export default function StockDetailPage() {
           <AlertCard ticker={ticker} currency={stock.currency} defaultPrice={displayPrice} />
         </div>
       </div>
+
+      <NewsCard ticker={ticker} />
     </div>
   );
 }
+
+function NewsCard({ ticker }: { ticker: string }) {
+  const { data } = useQuery({
+    queryKey: ["news", ticker],
+    queryFn: () => getStockNews(ticker, 7),
+    staleTime: 300_000,
+    retry: false,
+  });
+  if (!data || data.length === 0) return null;  // KRX·뉴스없음·키없음이면 카드 숨김
+
+  return (
+    <section style={styles.card}>
+      <div style={styles.cardTitle}>종목 뉴스</div>
+      <ul style={newsStyles.list}>
+        {data.slice(0, 8).map((n, i) => (
+          <li key={n.url + i} style={newsStyles.item}>
+            <a href={n.url} target="_blank" rel="noreferrer" style={newsStyles.headline}>
+              {n.headline}
+            </a>
+            <div style={newsStyles.meta}>
+              {n.source} · {new Date(n.datetime * 1000).toLocaleDateString("ko-KR")}
+            </div>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+const newsStyles: Record<string, React.CSSProperties> = {
+  list: { listStyle: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column", gap: 12 },
+  item: { borderBottom: "1px solid var(--border-subtle)", paddingBottom: 12 },
+  headline: { fontSize: 14, fontWeight: 600, color: "var(--text-primary)", lineHeight: 1.4 },
+  meta: { fontSize: 11, color: "var(--text-tertiary)", marginTop: 4 },
+};
 
 function AlertCard({
   ticker,
