@@ -3,6 +3,7 @@ package com.fintech.simulator.trading.service;
 import com.fintech.simulator.trading.domain.LimitOrder;
 import com.fintech.simulator.trading.domain.LimitOrderStatus;
 import com.fintech.simulator.trading.domain.OrderSide;
+import com.fintech.simulator.notification.service.NotificationService;
 import com.fintech.simulator.trading.repository.LimitOrderRepository;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -26,6 +27,7 @@ class LimitOrderFillerTest {
 
     @Mock LimitOrderRepository limitOrderRepository;
     @Mock TradingService tradingService;
+    @Mock NotificationService notificationService;
     @InjectMocks LimitOrderFiller filler;
 
     @Test

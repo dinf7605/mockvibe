@@ -19,6 +19,7 @@ const LimitOrdersPage = lazy(() => import("./pages/LimitOrdersPage"));
 const BacktestPage = lazy(() => import("./pages/BacktestPage"));
 const RiskPage = lazy(() => import("./pages/RiskPage"));
 const RankingPage = lazy(() => import("./pages/RankingPage"));
+const NotificationsPage = lazy(() => import("./pages/NotificationsPage"));
 const NotFoundPage = lazy(() => import("./pages/NotFoundPage"));
 
 const AdminLayout = lazy(() => import("./pages/AdminPage"));
@@ -58,6 +59,7 @@ export const router = createBrowserRouter([
       { path: "search", element: <StockSearchPage /> },
       { path: "watchlist", element: <WatchlistPage /> },
       { path: "alerts", element: <AlertsPage /> },
+      { path: "notifications", element: <NotificationsPage /> },
       { path: "stocks/:ticker", element: <StockDetailPage /> },
       { path: "history", element: <HistoryPage /> },
       { path: "orders", element: <LimitOrdersPage /> },

@@ -2,8 +2,11 @@ package com.fintech.simulator.alert.service;
 
 import com.fintech.simulator.alert.domain.AlertStatus;
 import com.fintech.simulator.alert.domain.PriceAlert;
+import com.fintech.simulator.alert.domain.AlertDirection;
 import com.fintech.simulator.alert.repository.PriceAlertRepository;
 import com.fintech.simulator.market.event.PriceUpdatedEvent;
+import com.fintech.simulator.notification.domain.NotificationType;
+import com.fintech.simulator.notification.service.NotificationService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.event.EventListener;
@@ -35,6 +38,7 @@ import java.util.concurrent.ConcurrentMap;
 public class PriceAlertProcessor {
 
     private final PriceAlertRepository alertRepository;
+    private final NotificationService notificationService;
     private final ConcurrentMap<String, Object> tickerLocks = new ConcurrentHashMap<>();
 
     @Async
@@ -51,6 +55,11 @@ public class PriceAlertProcessor {
                 if (alert.matches(price)) {
                     alert.trigger(price);
                     alertRepository.save(alert);
+                    String dir = alert.getDirection() == AlertDirection.ABOVE ? "이상" : "이하";
+                    notificationService.notify(alert.getUserId(), NotificationType.PRICE_ALERT,
+                            ticker + " 목표가 도달",
+                            String.format("목표가 %s %s 도달 (현재가 %s)", alert.getTargetPrice(), dir, price),
+                            "/stocks/" + ticker);
                     log.debug("PriceAlert triggered: id={} ticker={} {} {} @ {}",
                             alert.getAlertId(), ticker, alert.getDirection(), alert.getTargetPrice(), price);
                 }

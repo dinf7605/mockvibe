@@ -4,7 +4,8 @@ import { useQuery } from "@tanstack/react-query";
 import { useThemeStore } from "../store/themeStore";
 import { useAuthStore } from "../store/authStore";
 import { logout as apiLogout } from "../api/auth";
-import { getTriggeredCount } from "../api/alerts";
+import { getUnreadCount } from "../api/notifications";
+import { useNotificationStream } from "../hooks/useNotificationStream";
 
 interface NavItem {
   to: string;
@@ -19,7 +20,8 @@ const NAV: NavItem[] = [
   { to: "/dashboard", label: "대시보드", icon: "📊", end: true, primary: true },
   { to: "/search", label: "종목 검색", icon: "🔍", primary: true },
   { to: "/watchlist", label: "관심종목", icon: "⭐", primary: true },
-  { to: "/alerts", label: "알림", icon: "🔔", primary: true, badge: true },
+  { to: "/notifications", label: "알림함", icon: "🔔", primary: true, badge: true },
+  { to: "/alerts", label: "가격 알림", icon: "🎯" },
   { to: "/history", label: "거래 내역", icon: "🧾" },
   { to: "/orders", label: "예약 주문", icon: "⏱️" },
   { to: "/backtest", label: "백테스트", icon: "📈" },
@@ -36,14 +38,17 @@ export default function AppLayout() {
   const clear = useAuthStore((s) => s.clear);
   const [moreOpen, setMoreOpen] = useState(false);
 
-  // 알림 벨 배지 — 미확인(TRIGGERED) 개수 주기적 폴링
-  const { data: triggeredCount } = useQuery({
-    queryKey: ["alerts", "triggered-count"],
-    queryFn: getTriggeredCount,
-    refetchInterval: 15_000,
+  // 실시간 알림 STOMP 구독 (로그인 세션 동안 활성)
+  useNotificationStream();
+
+  // 벨 배지 — 미확인 알림 개수 (STOMP 무효화 + 폴링 백업)
+  const { data: unreadCount } = useQuery({
+    queryKey: ["notifications", "unread"],
+    queryFn: getUnreadCount,
+    refetchInterval: 30_000,
     staleTime: 10_000,
   });
-  const badge = triggeredCount && triggeredCount > 0 ? triggeredCount : null;
+  const badge = unreadCount && unreadCount > 0 ? unreadCount : null;
 
   async function handleLogout() {
     await apiLogout();
