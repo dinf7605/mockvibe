@@ -24,6 +24,7 @@ const NAV: NavItem[] = [
   { to: "/orders", label: "예약 주문", icon: "⏱️" },
   { to: "/backtest", label: "백테스트", icon: "📈" },
   { to: "/risk", label: "리스크", icon: "⚠️" },
+  { to: "/ranking", label: "랭킹", icon: "🏆" },
 ];
 
 export default function AppLayout() {

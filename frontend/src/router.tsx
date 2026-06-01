@@ -18,6 +18,7 @@ const HistoryPage = lazy(() => import("./pages/HistoryPage"));
 const LimitOrdersPage = lazy(() => import("./pages/LimitOrdersPage"));
 const BacktestPage = lazy(() => import("./pages/BacktestPage"));
 const RiskPage = lazy(() => import("./pages/RiskPage"));
+const RankingPage = lazy(() => import("./pages/RankingPage"));
 const NotFoundPage = lazy(() => import("./pages/NotFoundPage"));
 
 const AdminLayout = lazy(() => import("./pages/AdminPage"));
@@ -62,6 +63,7 @@ export const router = createBrowserRouter([
       { path: "orders", element: <LimitOrdersPage /> },
       { path: "backtest", element: <BacktestPage /> },
       { path: "risk", element: <RiskPage /> },
+      { path: "ranking", element: <RankingPage /> },
       {
         path: "admin",
         element: (
