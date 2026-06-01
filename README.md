@@ -47,7 +47,7 @@ KRX(한국투자증권 API)와 NYSE/NASDAQ(Finnhub)을 **단일 UI에서 통합 
 | 총 호출 | 23,164 (50 VU, 85s) | — |
 | 실패율 | **0.00%** | < 2% 목표 충족 |
 
-> 신규 기능(Flyway V1~V9, 워치리스트·가격알림·멱등성 포함) 전체가 올라간 상태에서 재측정.
+> 신규 기능(Flyway V1~V11, 워치리스트·가격알림·멱등성 포함) 전체가 올라간 상태에서 재측정.
 
 ---
 
@@ -79,7 +79,7 @@ flowchart LR
     end
 
     subgraph Infra["Infra"]
-        Oracle[(Oracle XE 21c<br/>Flyway V1~V9)]
+        Oracle[(Oracle XE 21c<br/>Flyway V1~V11)]
         Redis[(Redis 7<br/>RT / Blacklist / Cache)]
         Prom[Prometheus]
     end
@@ -104,9 +104,9 @@ flowchart LR
 |---|---|
 | **Backend** | Spring Boot 3.5.6 · Java 17 · JPA · WebSocket(STOMP) · Spring Security · Resilience4j · Bucket4j · springdoc-openapi |
 | **Frontend** | Vite 8 · React 19 · TypeScript 6 · Zustand · @tanstack/react-query · axios · @stomp/stompjs · lightweight-charts · ApexCharts |
-| **DB / Cache** | Oracle XE 21c (Docker `gvenzl/oracle-xe:21-slim-faststart`) · Flyway V1~V9 · Redis 7-alpine |
+| **DB / Cache** | Oracle XE 21c (Docker `gvenzl/oracle-xe:21-slim-faststart`) · Flyway V1~V11 · Redis 7-alpine |
 | **External** | KIS 모의투자 · Finnhub · ExchangeRate-API · Gemini (Claude 추상화 호환) |
-| **Observability** | Micrometer · Prometheus · MDC RequestId · k6 부하 테스트 |
+| **Observability** | Micrometer · Prometheus · **Micrometer Tracing(OpenTelemetry) traceId/spanId** · MDC RequestId · k6 부하 테스트 |
 | **Infra** | AWS EC2 t3.micro + Nginx HTTPS · Vercel · Oracle Autonomous DB · GitHub Actions 자동 배포 |
 
 ---
@@ -170,10 +170,13 @@ sequenceDiagram
 - **일봉 실데이터** — 한국 KIS 일봉 + **미국 Yahoo Finance 일봉**(무료, 1년치 backfill + 매일 cron). 장 외 시간엔 최근 종가 폴백으로 매매 가능
 - `MarketPollingScheduler` 분당 quote 폴링 → PriceCache + intraday 누적 (KIS WS 불안정 보완)
 
-### 개인화 / 알림 (D50+)
+### 개인화 / 알림 / 랭킹 (D50+)
 - ⭐ **관심종목 워치리스트** — 종목 상세 ☆ 토글 + 전용 목록
-- 🔔 **가격 알림** — 목표가(이상/이하) 설정 → `PriceUpdatedEvent` 구독 처리기가 도달 시 트리거. 네비 벨 미확인 배지(폴링)
-- 매매·관심·알림 동작에 **전역 토스트** 피드백
+- 🎯 **가격 알림** — 목표가(이상/이하) 설정 → `PriceUpdatedEvent` 구독 처리기가 도달 시 트리거
+- 🔔 **통합 알림 센터** — 가격알림 도달 / 지정가 체결 / AI 코멘트를 한 피드로. **STOMP 사용자별 실시간 푸시**(`/user/queue/notifications`, CONNECT 시 JWT→Principal 인터셉터) + 미확인 배지
+- 🏆 **수익률 랭킹 + 자산 추이** — 일별 `PORTFOLIO_SNAPSHOT` 배치(부팅 1회 + 매일) → 리더보드 + 내 자산 추이 area 차트
+- 📰 **종목 뉴스** — Finnhub `company-news`(US, 타임아웃·Redis 캐시 15분 보호)
+- 매매·관심·알림 동작에 **전역 토스트** 피드백, 반응형 셸(데스크톱 사이드바 / 모바일 하단 탭바)
 
 ### AI 코치 (Gemini)
 - 매매 직후 `OrderExecutedEvent` → `AiCommentListener` 자동 코멘트
@@ -184,7 +187,7 @@ sequenceDiagram
 ### 운영 / 관리자
 - 7개 관리자 화면 — Users(시드머니 step-up) · Stocks · Trades · System(CB 신호등) · Audit(diff 뷰) · Announcements · AI Usage
 - `@Auditable` AOP → ADMIN_AUDIT_LOGS (before/after JSON diff)
-- RequestId MDC 필터 → 로그 추적
+- RequestId MDC 필터 + **분산 추적(traceId/spanId)** 로그 상관관계 → 요청 흐름 추적
 - Prometheus `/actuator/prometheus` 노출
 
 ---
@@ -246,6 +249,8 @@ mockvibe/
 │       ├── trading/            # 시장가 + 지정가 + 동시성
 │       ├── watchlist/          # 관심종목 (V8)
 │       ├── alert/              # 가격 알림 (V9)
+│       ├── ranking/            # 수익률 랭킹 + 자산 추이 (V10)
+│       ├── notification/       # 통합 알림 센터 + STOMP 푸시 (V11)
 │       ├── portfolio/          # 보유/대시보드
 │       ├── fx/                 # 환율 캐시
 │       ├── backtest/           # 전략 엔진 + 시뮬레이션
@@ -255,7 +260,7 @@ mockvibe/
 │       ├── config/             # Security / CB / Bucket4j
 │       └── common/             # ErrorCode / RequestId / Idempotency
 ├── frontend/                   # Vite + React 19 + TS (반응형 셸 + 코드 스플리팅)
-│   └── src/pages/              # 14 page + admin/7
+│   └── src/pages/              # 16 page + admin/7 (반응형 셸 + 코드 스플리팅)
 ├── docker/                     # Oracle XE + Redis compose
 ├── perf/                       # k6 시나리오
 ├── docs/decisions/             # ADR (9건. 추가 예정)
@@ -279,6 +284,8 @@ mockvibe/
 | **V7** | P7 D41 | ADMIN_AUDIT_LOGS · ANNOUNCEMENTS |
 | **V8** | D50+ | WATCHLIST (관심종목) |
 | **V9** | D50+ | PRICE_ALERT (가격 알림) |
+| **V10** | D50+ | PORTFOLIO_SNAPSHOT (수익률 랭킹·자산 추이) |
+| **V11** | D50+ | NOTIFICATION (통합 알림 센터) |
 
 > **왜 점진 마이그레이션?** [ADR-001](docs/decisions/ADR-001-data-model.md) 참조 — 운영의 사실성 + 롤백 단위 격리.
 
@@ -341,11 +348,17 @@ mockvibe/
 - ✅ 지정가 주문 풀스택 UI (시장가/지정가 토글 + 예약 주문 관리)
 - ✅ **유저 친화적 리디자인** — 반응형 앱 셸(데스크톱 사이드바 / 모바일 하단 탭바), 전역 토스트, 빈 상태, 라우트 코드 스플리팅(초기 번들 1.19MB→374KB)
 - ✅ 대시보드 AI 카드 실연동 (`/ai/reports` + 즉시 분석)
+- ✅ **수익률 랭킹 + 자산 추이** (V10 PORTFOLIO_SNAPSHOT 일별 배치)
+- ✅ **통합 알림 센터 + STOMP 사용자별 실시간 푸시** (V11 NOTIFICATION)
+- ✅ **종목 뉴스** (Finnhub company-news, 타임아웃·캐시)
+- ✅ **OpenTelemetry 분산 추적** (Micrometer Tracing, traceId/spanId 로그 상관관계)
+- ✅ KIS access token·approval_key **Redis 영속화** (1일 1회 발급 원칙)
+- ✅ Flyway **repair()→migrate() 전략** (실패 마이그레이션 자가복구)
 
 ### 향후 후보
-- 💡 OpenTelemetry 분산 추적
-- 💡 Web Push 알림 (브라우저 푸시)
-- 💡 수익률 랭킹/리더보드 · 분봉 차트
+- 💡 OTLP exporter → Jaeger/Tempo 추적 백엔드 연동
+- 💡 Web Push 알림 (브라우저 푸시) · 분봉 차트
+- 💡 이벤트 스트리밍(Redis Streams) 전환
 
 ---
 
