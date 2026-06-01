@@ -59,6 +59,11 @@ dependencies {
 	// Metrics
 	implementation 'io.micrometer:micrometer-registry-prometheus'
 
+	// Distributed Tracing (Micrometer Tracing + OpenTelemetry bridge)
+	// — 요청별 traceId/spanId 생성·전파 + 로그 상관관계. 외부 콜렉터 없이도 동작(span no-op export).
+	//   Jaeger/Tempo 연동은 opentelemetry-exporter-otlp 추가 + management.otlp.tracing.endpoint 설정 시 활성.
+	implementation 'io.micrometer:micrometer-tracing-bridge-otel'
+
 	// API Docs (OpenAPI/Swagger)
 	implementation "org.springdoc:springdoc-openapi-starter-webmvc-ui:${springdocVersion}"
 

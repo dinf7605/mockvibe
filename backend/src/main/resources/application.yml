@@ -39,6 +39,11 @@ management:
   metrics:
     tags:
       application: ${spring.application.name}
+  # 분산 추적 — 요청별 traceId/spanId 생성·전파. dev는 전량 샘플링.
+  # (OTLP export는 exporter 의존성 + otlp.tracing.endpoint 설정 시 활성; 기본은 로그 상관관계만)
+  tracing:
+    sampling:
+      probability: 1.0
 
 springdoc:
   api-docs:
@@ -49,7 +54,8 @@ springdoc:
 
 logging:
   pattern:
-    level: "%5p [%X{requestId:-}]"
+    # requestId(MDC) + traceId/spanId(분산추적) 상관관계
+    level: "%5p [%X{requestId:-}] [%X{traceId:-},%X{spanId:-}]"
   level:
     com.fintech.simulator: INFO
     org.springframework.web: INFO
