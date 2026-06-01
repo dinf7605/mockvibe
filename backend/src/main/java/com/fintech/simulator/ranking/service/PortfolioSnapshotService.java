@@ -35,6 +35,7 @@ import java.util.List;
 @Slf4j
 @Service
 @RequiredArgsConstructor
+@Order(50)   // ApplicationRunner 순서: 시드/일봉 fetcher(@Order 20·21·기본) 이후에 스냅샷
 public class PortfolioSnapshotService implements ApplicationRunner {
 
     private static final ZoneId KST = ZoneId.of("Asia/Seoul");
@@ -46,7 +47,6 @@ public class PortfolioSnapshotService implements ApplicationRunner {
 
     @Override
     @Async
-    @Order(50)
     public void run(ApplicationArguments args) {
         int n = snapshotAll();
         log.info("PortfolioSnapshot: boot 스냅샷 완료 — {} 사용자", n);

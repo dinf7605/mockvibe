@@ -428,13 +428,6 @@ pre {
 }
 .btn-primary:hover:not(:disabled) { background: var(--color-primary-hover); }
 
-.card {
-  background: var(--bg-panel);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-lg);
-  padding: 16px;
-}
-
 /* 모바일에서 넓은 표가 잘리지 않도록 가로 스크롤 */
 .table-scroll { width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
 .table-scroll > table { min-width: 520px; }
@@ -493,7 +486,6 @@ a:focus-visible {
   animation: shimmer 1.3s infinite;
 }
 @keyframes shimmer { 100% { transform: translateX(100%); } }
-.skeleton-grid { display: grid; gap: 12px; }
 
 /* ==========================================================================
    빈 상태

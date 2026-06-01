@@ -227,7 +227,6 @@ const styles: Record<string, React.CSSProperties> = {
   kpiHighlight: { boxShadow: "var(--shadow-md)" },
   kpiLabel: { fontSize: 12, color: "var(--text-secondary)", marginBottom: 6 },
   kpiValue: { fontSize: 22, fontWeight: 700, fontVariantNumeric: "tabular-nums" },
-  row2: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 },
   card: {
     background: "var(--bg-panel)", border: "1px solid var(--border-subtle)",
     borderRadius: "var(--radius-lg)", padding: 20,
@@ -242,9 +241,6 @@ const styles: Record<string, React.CSSProperties> = {
   aiContent: {
     fontSize: 13, lineHeight: 1.6, color: "var(--text-secondary)",
     whiteSpace: "pre-wrap", maxHeight: 200, overflowY: "auto",
-  },
-  placeholderBox: {
-    padding: 24, color: "var(--text-tertiary)", fontSize: 13, textAlign: "center" as const,
   },
   table: { width: "100%", borderCollapse: "collapse", fontSize: 13 },
   thRow: { borderBottom: "1px solid var(--border-subtle)" },

@@ -319,7 +319,6 @@ const styles: Record<string, React.CSSProperties> = {
     marginTop: 4,
     fontWeight: 600,
   },
-  body: { display: "grid", gridTemplateColumns: "1fr 340px", gap: 16 },
   sideCol: { display: "grid", gap: 16, alignContent: "start" },
   card: {
     background: "var(--bg-panel)", border: "1px solid var(--border-subtle)",
