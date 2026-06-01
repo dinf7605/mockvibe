@@ -2,25 +2,31 @@ package com.fintech.simulator.market.provider.finnhub;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fintech.simulator.market.dto.NewsItem;
-import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 
+import java.time.Duration;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.Comparator;
 import java.util.List;
 
 /**
- * Finnhub `/company-news` REST 호출 — 미국 종목 뉴스 (무료 티어 지원).
+ * Finnhub `/company-news` REST 호출 — 미국 종목 뉴스 (무료 티어).
  *
- * <pre>GET /company-news?symbol=AAPL&from=2024-01-01&to=2024-01-07&token={apiKey}</pre>
- * - 미국 심볼(알파벳)만 지원. KRX(숫자 티커)는 호출자가 빈 리스트로 처리.
- * - 응답 다수 → 최신순 정렬 후 상한 개수만 반환.
- * - app.external.finnhub.api-key 없으면 Bean 비활성.
+ * <h3>회복력 (company-news 는 응답이 크고 느림: AAPL 7일 ≈ 245건/11s, 종종 504)</h3>
+ * <ul>
+ *   <li><b>connect 3s / read 8s 타임아웃</b> — 느린 응답은 빠르게 포기하고 빈 목록</li>
+ *   <li><b>Redis 캐시 15분</b> — 한 번 받으면 재호출 없이 즉시 반환</li>
+ *   <li>모든 예외는 try/catch 로 흡수 → 504/500 전파 방지, 카드 숨김(빈 목록)</li>
+ * </ul>
  */
 @Slf4j
 @Component
@@ -29,19 +35,59 @@ public class FinnhubNewsClient {
 
     private static final DateTimeFormatter FMT = DateTimeFormatter.ISO_LOCAL_DATE;
     private static final int MAX_ITEMS = 15;
+    private static final Duration CACHE_TTL = Duration.ofMinutes(15);
+    private static final TypeReference<List<NewsItem>> LIST_TYPE = new TypeReference<>() {};
 
     private final FinnhubProperties props;
     private final FinnhubRateLimiter rateLimiter;
+    private final StringRedisTemplate redis;
+    private final ObjectMapper objectMapper;
     private final RestClient restClient;
 
-    public FinnhubNewsClient(FinnhubProperties props, FinnhubRateLimiter rateLimiter) {
+    public FinnhubNewsClient(FinnhubProperties props, FinnhubRateLimiter rateLimiter,
+                             StringRedisTemplate redis, ObjectMapper objectMapper) {
         this.props = props;
         this.rateLimiter = rateLimiter;
-        this.restClient = RestClient.builder().baseUrl(props.baseUrl()).build();
+        this.redis = redis;
+        this.objectMapper = objectMapper;
+        SimpleClientHttpRequestFactory rf = new SimpleClientHttpRequestFactory();
+        rf.setConnectTimeout(3_000);
+        rf.setReadTimeout(10_000);
+        this.restClient = RestClient.builder().baseUrl(props.baseUrl()).requestFactory(rf).build();
     }
 
-    @CircuitBreaker(name = "fx-rate", fallbackMethod = "fallbackEmpty")
+    /**
+     * 캐시 우선 → 미스 시 Finnhub 호출(타임아웃 보호). 어떤 예외도 빈 목록으로 흡수.
+     * (자가호출이라 CB 애노테이션 대신 직접 try/catch — 타임아웃이 핵심 방어)
+     */
     public List<NewsItem> companyNews(String ticker, int days) {
+        String cacheKey = "news:" + ticker;
+        try {
+            String cached = redis.opsForValue().get(cacheKey);
+            if (cached != null) return objectMapper.readValue(cached, LIST_TYPE);
+        } catch (Exception e) {
+            log.debug("news cache 조회 실패 {}: {}", ticker, e.toString());
+        }
+
+        List<NewsItem> items;
+        try {
+            items = fetch(ticker, days);
+        } catch (Exception e) {
+            log.warn("Finnhub news failed for {}: {}", ticker, e.toString());
+            return List.of();
+        }
+
+        if (!items.isEmpty()) {
+            try {
+                redis.opsForValue().set(cacheKey, objectMapper.writeValueAsString(items), CACHE_TTL);
+            } catch (Exception e) {
+                log.debug("news cache 저장 실패 {}: {}", ticker, e.toString());
+            }
+        }
+        return items;
+    }
+
+    private List<NewsItem> fetch(String ticker, int days) {
         rateLimiter.acquire();
         LocalDate to = LocalDate.now();
         LocalDate from = to.minusDays(Math.max(1, days));
@@ -63,12 +109,6 @@ public class FinnhubNewsClient {
                 .limit(MAX_ITEMS)
                 .map(n -> new NewsItem(n.headline(), n.source(), n.summary(), n.url(), n.datetime(), n.image()))
                 .toList();
-    }
-
-    @SuppressWarnings("unused")
-    private List<NewsItem> fallbackEmpty(String ticker, int days, Throwable t) {
-        log.warn("Finnhub news failed for {}: {}", ticker, t.toString());
-        return List.of();
     }
 
     @JsonIgnoreProperties(ignoreUnknown = true)

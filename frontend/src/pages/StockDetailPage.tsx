@@ -160,7 +160,7 @@ export default function StockDetailPage() {
 function NewsCard({ ticker }: { ticker: string }) {
   const { data } = useQuery({
     queryKey: ["news", ticker],
-    queryFn: () => getStockNews(ticker, 7),
+    queryFn: () => getStockNews(ticker, 3),
     staleTime: 300_000,
     retry: false,
   });

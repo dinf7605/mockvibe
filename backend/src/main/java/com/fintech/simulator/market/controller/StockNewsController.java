@@ -28,7 +28,7 @@ public class StockNewsController {
 
     @GetMapping("/{ticker}/news")
     public List<NewsItem> news(@PathVariable String ticker,
-                               @RequestParam(defaultValue = "7") int days) {
+                               @RequestParam(defaultValue = "3") int days) {
         if (ticker == null || !ticker.matches("[A-Za-z]{1,5}")) {
             return List.of();   // 미국 종목만 지원
         }
