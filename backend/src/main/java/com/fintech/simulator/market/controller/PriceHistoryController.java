@@ -4,6 +4,8 @@ import com.fintech.simulator.common.exception.BusinessException;
 import com.fintech.simulator.common.exception.ErrorCode;
 import com.fintech.simulator.market.domain.PriceHistory;
 import com.fintech.simulator.market.dto.DailyCandle;
+import com.fintech.simulator.market.dto.IntradayPoint;
+import com.fintech.simulator.market.repository.IntradayCandleRepository;
 import com.fintech.simulator.market.repository.PriceHistoryRepository;
 import com.fintech.simulator.market.repository.StockRepository;
 import lombok.RequiredArgsConstructor;
@@ -14,6 +16,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.time.LocalDate;
+import java.time.OffsetDateTime;
 import java.util.Comparator;
 import java.util.List;
 
@@ -31,7 +34,10 @@ public class PriceHistoryController {
     private static final int DEFAULT_DAYS = 90;
     private static final int MAX_DAYS = 365;
 
+    private static final int MAX_INTRADAY_HOURS = 72;
+
     private final PriceHistoryRepository priceHistoryRepository;
+    private final IntradayCandleRepository intradayCandleRepository;
     private final StockRepository stockRepository;
 
     /**
@@ -59,6 +65,25 @@ public class PriceHistoryController {
                 .sorted(Comparator.comparing(PriceHistory::getTradeDate))
                 .map(DailyCandle::from)
                 .toList();
+    }
+
+    /**
+     * 분봉(intraday) — 최근 N시간. GET /stocks/{ticker}/intraday?hours=24
+     * 시각은 lightweight-charts intraday 호환 epoch seconds.
+     */
+    @GetMapping("/{ticker}/intraday")
+    public List<IntradayPoint> intraday(
+            @PathVariable String ticker,
+            @RequestParam(defaultValue = "24") int hours
+    ) {
+        if (stockRepository.findById(ticker).isEmpty()) {
+            throw new BusinessException(ErrorCode.STOCK_NOT_FOUND);
+        }
+        int clamped = Math.max(1, Math.min(hours, MAX_INTRADAY_HOURS));
+        OffsetDateTime since = OffsetDateTime.now().minusHours(clamped);
+        return intradayCandleRepository
+                .findByTickerAndBucketTsGreaterThanEqualOrderByBucketTsAsc(ticker, since)
+                .stream().map(IntradayPoint::from).toList();
     }
 
     /**

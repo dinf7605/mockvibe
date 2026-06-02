@@ -12,7 +12,9 @@ import {
   getStock,
   getPriceHistory,
   getLastClose,
+  getIntraday,
   type DailyCandle,
+  type IntradayPoint,
 } from "../api/stocks";
 import { isWatching, addWatchlist, removeWatchlist } from "../api/watchlist";
 import { createAlert, type AlertDirection } from "../api/alerts";
@@ -65,6 +67,15 @@ export default function StockDetailPage() {
       qc.invalidateQueries({ queryKey: ["watchlist"] });
     },
     onError: () => notify.error("관심종목 변경에 실패했습니다."),
+  });
+
+  // 일봉/분봉 토글 + 분봉 데이터
+  const [chartMode, setChartMode] = useState<"daily" | "intraday">("daily");
+  const { data: intraday } = useQuery({
+    queryKey: ["intraday", ticker],
+    queryFn: () => getIntraday(ticker!, 24),
+    enabled: !!ticker && chartMode === "intraday",
+    refetchInterval: chartMode === "intraday" ? 30_000 : false,
   });
 
   const live = useStompPrice(ticker);
@@ -133,11 +144,35 @@ export default function StockDetailPage() {
 
       <div className="detail-body">
         <section style={styles.card}>
-          <div style={styles.cardTitle}>
-            일봉 (최근 {candles?.length ?? 0}일)
-            {isUsingClose && <span style={styles.cardNote}> · 장 외 시간 — 종가 기준 매매 가능</span>}
+          <div style={styles.chartHead}>
+            <div style={styles.cardTitle}>
+              {chartMode === "daily"
+                ? `일봉 (최근 ${candles?.length ?? 0}일)`
+                : "분봉 (최근 24시간)"}
+              {chartMode === "daily" && isUsingClose && (
+                <span style={styles.cardNote}> · 장 외 시간 — 종가 기준 매매 가능</span>
+              )}
+            </div>
+            <div style={styles.chartTabs}>
+              <button
+                onClick={() => setChartMode("daily")}
+                style={{ ...styles.chartTab, ...(chartMode === "daily" ? styles.chartTabActive : {}) }}
+              >일봉</button>
+              <button
+                onClick={() => setChartMode("intraday")}
+                style={{ ...styles.chartTab, ...(chartMode === "intraday" ? styles.chartTabActive : {}) }}
+              >분봉</button>
+            </div>
           </div>
-          <DailyCandleChart candles={candles ?? []} />
+          {chartMode === "daily" ? (
+            <DailyCandleChart candles={candles ?? []} />
+          ) : (intraday && intraday.length > 0) ? (
+            <IntradayChart points={intraday} />
+          ) : (
+            <div style={styles.chartEmpty}>
+              분봉 데이터가 아직 없습니다. 장중(KRX 주간 / 미국 야간)에 분당 수집됩니다.
+            </div>
+          )}
         </section>
 
         <div style={styles.sideCol}>
@@ -283,6 +318,50 @@ const alertStyles: Record<string, React.CSSProperties> = {
   err: { fontSize: 11, color: "var(--color-down)" },
 };
 
+function IntradayChart({ points }: { points: IntradayPoint[] }) {
+  const mode = useThemeStore((s) => s.mode);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const chartRef = useRef<IChartApi | null>(null);
+  const seriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
+
+  useEffect(() => {
+    if (!containerRef.current) return;
+    const chart = createChart(containerRef.current, {
+      height: 320,
+      autoSize: true,
+      layout: {
+        background: { type: ColorType.Solid, color: "transparent" },
+        textColor: mode === "dark" ? "#A8B3C1" : "#4A525C",
+      },
+      grid: {
+        vertLines: { color: mode === "dark" ? "#2A323D" : "#E6E8EB" },
+        horzLines: { color: mode === "dark" ? "#2A323D" : "#E6E8EB" },
+      },
+      timeScale: { borderVisible: false, timeVisible: true, secondsVisible: false },
+      rightPriceScale: { borderVisible: false },
+    });
+    const series = chart.addSeries(CandlestickSeries, {
+      upColor: "#e74c3c", downColor: "#3498db",
+      borderUpColor: "#e74c3c", borderDownColor: "#3498db",
+      wickUpColor: "#e74c3c", wickDownColor: "#3498db",
+    });
+    chartRef.current = chart;
+    seriesRef.current = series;
+    return () => { chart.remove(); chartRef.current = null; seriesRef.current = null; };
+  }, [mode]);
+
+  useEffect(() => {
+    if (!seriesRef.current || points.length === 0) return;
+    seriesRef.current.setData(points.map((p) => ({
+      time: p.time as never,   // UNIX epoch seconds
+      open: p.open, high: p.high, low: p.low, close: p.close,
+    })));
+    chartRef.current?.timeScale().fitContent();
+  }, [points]);
+
+  return <div ref={containerRef} style={{ width: "100%", height: 320 }} />;
+}
+
 function DailyCandleChart({ candles }: { candles: DailyCandle[] }) {
   const mode = useThemeStore((s) => s.mode);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -367,5 +446,23 @@ const styles: Record<string, React.CSSProperties> = {
   },
   cardNote: {
     fontSize: 11, fontWeight: 500, color: "var(--color-warning)",
+  },
+  chartHead: {
+    display: "flex", alignItems: "center", justifyContent: "space-between",
+    gap: 8, marginBottom: 12, flexWrap: "wrap",
+  },
+  chartTabs: {
+    display: "flex", gap: 2, padding: 2,
+    background: "var(--bg-elevated)", borderRadius: "var(--radius-sm)",
+  },
+  chartTab: {
+    height: 26, padding: "0 12px", fontSize: 12, fontWeight: 600, cursor: "pointer",
+    background: "transparent", color: "var(--text-secondary)",
+    border: "none", borderRadius: "var(--radius-sm)",
+  },
+  chartTabActive: { background: "var(--bg-hover)", color: "var(--text-primary)" },
+  chartEmpty: {
+    height: 320, display: "flex", alignItems: "center", justifyContent: "center",
+    textAlign: "center", fontSize: 13, color: "var(--text-tertiary)", padding: "0 20px",
   },
 };

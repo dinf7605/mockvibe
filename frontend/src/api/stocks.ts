@@ -66,3 +66,20 @@ export async function getLastClose(ticker: string): Promise<LastClose> {
   const res = await api.get<LastClose>(`/stocks/${ticker}/last-close`);
   return res.data;
 }
+
+/** 분봉 — time 은 UNIX epoch seconds (lightweight-charts intraday 호환) */
+export interface IntradayPoint {
+  time: number;
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+  volume: number;
+}
+
+export async function getIntraday(ticker: string, hours = 24): Promise<IntradayPoint[]> {
+  const res = await api.get<IntradayPoint[]>(`/stocks/${ticker}/intraday`, {
+    params: { hours },
+  });
+  return res.data;
+}

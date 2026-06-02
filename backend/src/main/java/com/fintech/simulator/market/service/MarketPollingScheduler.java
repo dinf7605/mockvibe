@@ -1,11 +1,13 @@
 package com.fintech.simulator.market.service;
 
 import com.fintech.simulator.market.cache.PriceCache;
+import com.fintech.simulator.market.domain.IntradayCandle;
 import com.fintech.simulator.market.domain.PriceHistory;
 import com.fintech.simulator.market.domain.Stock;
 import com.fintech.simulator.market.event.PriceUpdatedEvent;
 import com.fintech.simulator.market.provider.MarketDataProvider;
 import com.fintech.simulator.market.provider.Quote;
+import com.fintech.simulator.market.repository.IntradayCandleRepository;
 import com.fintech.simulator.market.repository.PriceHistoryRepository;
 import com.fintech.simulator.market.repository.StockRepository;
 import lombok.RequiredArgsConstructor;
@@ -13,9 +15,12 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.time.OffsetDateTime;
 import java.time.ZoneId;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 
 /**
@@ -47,8 +52,12 @@ public class MarketPollingScheduler {
     private static final ZoneId KST = ZoneId.of("Asia/Seoul");
     private static final ZoneId ET  = ZoneId.of("America/New_York");
 
+    /** 분봉 보관일 (이후 일일 purge) */
+    private static final int INTRADAY_RETENTION_DAYS = 3;
+
     private final StockRepository stockRepository;
     private final PriceHistoryRepository priceHistoryRepository;
+    private final IntradayCandleRepository intradayCandleRepository;
     private final PriceCache priceCache;
     private final MarketHoursService marketHours;
     private final List<MarketDataProvider> providers;   // 활성화된 provider 만 (ConditionalOnProperty)
@@ -87,9 +96,36 @@ public class MarketPollingScheduler {
                     priceCache.put(q);
                     eventPublisher.publishEvent(new PriceUpdatedEvent(q));  // → STOMP
                     recordIntraday(q, tradeDateOf(stock));
+                    recordMinute(q);
                     return true;
                 })
                 .orElse(false);
+    }
+
+    /**
+     * 분봉(INTRADAY_CANDLE) 누적. 폴링이 분당 1회라 대개 한 분에 1틱(O=H=L=C),
+     * 같은 분 재호출 시 high/low/close 갱신. self-invocation → 명시 save().
+     */
+    private void recordMinute(Quote q) {
+        OffsetDateTime bucket = OffsetDateTime.now().truncatedTo(ChronoUnit.MINUTES);
+        intradayCandleRepository.findByTickerAndBucketTs(q.ticker(), bucket)
+                .ifPresentOrElse(
+                        existing -> {
+                            existing.applyTick(q.price());
+                            intradayCandleRepository.save(existing);
+                        },
+                        () -> intradayCandleRepository.save(
+                                IntradayCandle.openOf(q.ticker(), bucket, q.price()))
+                );
+    }
+
+    /** 분봉 보관 정책 — 매일 새벽 오래된 분봉 삭제(테이블 비대 방지). */
+    @Scheduled(cron = "0 30 5 * * *", zone = "Asia/Seoul")
+    @Transactional
+    public void purgeOldIntraday() {
+        OffsetDateTime cutoff = OffsetDateTime.now().minusDays(INTRADAY_RETENTION_DAYS);
+        int deleted = intradayCandleRepository.deleteOlderThan(cutoff);
+        if (deleted > 0) log.info("Intraday purge: {} candles older than {} days deleted", deleted, INTRADAY_RETENTION_DAYS);
     }
 
     /**
