@@ -97,9 +97,24 @@ public class MarketPollingScheduler {
                     eventPublisher.publishEvent(new PriceUpdatedEvent(q));  // → STOMP
                     recordIntraday(q, tradeDateOf(stock));
                     recordMinute(q);
+                    syncStockPrice(stock, q.price());
                     return true;
                 })
                 .orElse(false);
+    }
+
+    /**
+     * 폴링 시세로 STOCKS.current_price 갱신.
+     *
+     * <p>이 컬럼은 종목 검색·상세의 "현재가"(StockResponse)와 포트폴리오 캐시 miss 폴백에
+     * 직접 노출되는 denormalized 값이다. 갱신하지 않으면 장중에 시세가 움직여도 일봉 backfill
+     * 동기화(하루 1회)·부팅 시점 값에 멈춰 있다. 매 폴링마다 최신 native 가격으로 sync.
+     * self-invocation 이라 명시 save().
+     */
+    private void syncStockPrice(Stock stock, java.math.BigDecimal nativePrice) {
+        if (nativePrice == null || nativePrice.signum() <= 0) return;
+        stock.setCurrentPrice(nativePrice);
+        stockRepository.save(stock);
     }
 
     /**
